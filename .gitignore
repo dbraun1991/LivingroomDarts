@@ -1,0 +1,21 @@
+# IntelliJ / JetBrains
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.idea_modules/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Node (if ever added)
+node_modules/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
