@@ -14,21 +14,38 @@ One phone scores, one laptop/TV displays the live burndown chart.
 - Unlimited undo — ⌫ on empty slots walks back through the entire game history
 - Per-player colour coding: picked in setup, shown everywhere in both views
 - Live burndown chart on the TV — updates within ~100ms over the same Wi-Fi
-- Last 3 visit scores and running average shown per player in both views
+- Last 3 individual dart scores and running average shown per player in both views
+- Live score countdown as each dart is entered
+
+---
+
+## Preview
+
+<img src="docs/GameSetup_view.png" width="300" alt="Game Setup">
+<img src="docs/InGame_view.png" width="300" alt="In Game">
+<img src="docs/TV_preview.png" width="300" alt="TV Preview">
+<img src="docs/TV_ingame.png" width="300" alt="TV In Game">
 
 ---
 
 ## Files
 
 ```
-darts.html   — structure only, no inline scripts or styles
-darts.css    — all styles (phone scoring view + TV display view)
-darts.js     — all logic as a single ES module
-README.md    — this file
-AGENTS.md    — technical reference for developers and AI agents
+.
+├── AGENTS.md
+├── darts.css
+├── darts.html
+├── darts.js
+├── docs
+│   ├── GameSetup_view.png
+│   ├── InGame_view.png
+│   ├── TV_ingame.png
+│   └── TV_preview.png
+├── LICENSE
+└── README.md
 ```
 
-All three code files must sit in the same folder.
+All three code files (`darts.html`, `darts.css`, `darts.js`) must sit in the same folder.
 
 ---
 
@@ -62,7 +79,7 @@ Then open in your browser:
    - 6 columns: Red · Orange · Green · Cyan · Blue · Purple
    - 5 rows: Pastel → Light → Vivid → Dark → Very Dark
    - Bottom row: neutral greys + bright yellow
-   - **?** button (bottom) picks a random unused colour automatically
+   - **?** tile picks a random unused colour automatically
 5. Use **🔀 Randomize Order** to shuffle the throwing order
 6. Tap **START GAME**
 
@@ -104,9 +121,10 @@ D and T act as toggles — tap again to deactivate without entering a dart.
 ### Turn flow
 
 1. Enter darts one at a time — the preview bar shows each dart and a running visit total
-2. After the **3rd dart**, the visit commits automatically (~0.9s delay to show the result)
-3. On a **bust**, a red banner flashes and the turn ends without subtracting (~1.5s delay)
-4. A player reaching exactly **0** wins immediately — even on dart 1 or 2
+2. The score in the player strip and TV sidebar **counts down live** as each dart is entered
+3. After the **3rd dart**, the visit commits automatically (~0.9s delay to show the result)
+4. On a **bust**, a red banner flashes and the turn ends without subtracting (~1.5s delay)
+5. A player reaching exactly **0** wins immediately — even on dart 1 or 2
 
 ### Bust rules
 
@@ -117,7 +135,7 @@ D and T act as toggles — tap again to deactivate without entering a dart.
 
 ### Player strip
 
-Below the numpad, all players are shown in throwing order. The active player's row is highlighted in their colour. Each row shows: name · last 3 visit totals (— if not yet thrown) · average · remaining score.
+Below the numpad, all players are shown in throwing order. The active player's row is highlighted in their colour. Each row shows: name · last 3 individual dart scores (— if not yet thrown) · average · remaining score.
 
 ### End Game
 
@@ -129,12 +147,12 @@ The **⏹ End Game** button at the bottom returns to the setup screen. Player na
 
 | Element | Description |
 |---------|-------------|
-| **Burndown chart** | One coloured line per player, score descending toward 0 as rounds progress. Lines are thick (4px) for 4K readability. |
-| **Standings sidebar** | Ranked by current score. Each row: position · name · last 3 visits · average (⌀) · remaining score. Left border and score text in player colour. Active/throwing player highlighted in gold. |
+| **Burndown chart** | One coloured line per player, score descending toward 0 as rounds progress. |
+| **Standings sidebar** | Ranked by current score. Each row: position · name · last 3 individual dart scores · average (⌀) · remaining score (counts down live). Left border and score in player colour. Active player highlighted. |
 | **Now Throwing** | Top-right header. Player name shown in their chosen colour. |
 | **Round / Finish Rule** | Centre header. Shows current round number and Single/Double Out badge. |
-| **Waiting overlay** | Shown when no game is active — animated dart icon. Disappears when a game starts. Returns when End Game is pressed. |
-| **Winner overlay** | Appears automatically when a player reaches 0. Name shown in player's colour. Dismiss with "Continue watching". Cleared automatically when a new game starts. |
+| **Waiting overlay** | Shown when no game is active — animated dart icon. Disappears when a game starts. Returns on End Game. |
+| **Winner overlay** | Appears automatically when a player reaches 0. Name shown in player's colour. Dismiss with "Continue watching". Cleared on new game start. |
 
 The TV view is **read-only** — it never writes to storage.
 
@@ -171,3 +189,4 @@ The app detects the placeholder config and falls back to `localStorage` automati
 | Keep cache disabled | DevTools → Network → ☑ Disable cache |
 | Undo last visit | ⌫ on empty numpad |
 | End game, keep players | ⏹ End Game button |
+| Start local server | `python3 -m http.server 8000` |

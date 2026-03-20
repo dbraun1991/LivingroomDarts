@@ -65,7 +65,7 @@ input {
   border: 1px solid var(--border);
   color: var(--text);
   border-radius: var(--radius);
-  padding: 10px 14px;
+  padding: 12px 14px;
   font-size: 1rem;
   width: 100%;
   outline: none;
@@ -213,6 +213,18 @@ input:focus { border-color: var(--accent); }
 }
 .start-btn:hover { background: var(--accent); }
 
+.tv-link-btn {
+  width: 100%; padding: 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: var(--radius);
+  font-family: var(--font-cond);
+  font-size: 1rem; letter-spacing: 2px;
+  transition: all .2s;
+}
+.tv-link-btn:hover { border-color: var(--accent); color: var(--accent); }
+
 /* Game Screen */
 #game-screen {
   width: 100%; max-width: 480px; height: 100%;
@@ -242,6 +254,32 @@ input:focus { border-color: var(--accent); }
 .dart-visit-total {
   font-family: var(--font-head); font-size: 1.6rem;
   color: var(--gold); min-width: 50px; text-align: center;
+}
+
+/* Review Banner */
+.review-banner {
+  background: #1a2e3a; color: #64b5f6; text-align: center;
+  padding: 6px; font-family: var(--font-head); font-size: 1rem;
+  letter-spacing: 3px; border-bottom: 1px solid #2a4a5a; flex-shrink: 0;
+}
+
+/* Review action row */
+.review-action { display: flex; padding: 6px 10px 0; flex-shrink: 0; }
+.review-action.hidden { display: none !important; }
+
+.confirm-visit-btn {
+  flex: 1; padding: 14px;
+  background: #1a3a1a; color: var(--accent);
+  border: 2px solid var(--accent); border-radius: var(--radius);
+  font-family: var(--font-head); font-size: 1.4rem; letter-spacing: 2px;
+  transition: all .15s;
+}
+.confirm-visit-btn:hover { background: var(--green); color: #000; }
+
+/* Disabled numpad buttons in review mode */
+.numpad-btn:disabled {
+  opacity: .25; cursor: not-allowed; transform: none !important;
+  pointer-events: none;
 }
 
 /* Bust Banner */
@@ -376,6 +414,12 @@ input:focus { border-color: var(--accent); }
 .tv-lb-dart    { font-family: var(--font-cond); font-size: 1.1rem; color: var(--muted);
                   background: var(--bg); border: 1px solid var(--border);
                   border-radius: 5px; padding: 3px 9px; min-width: 36px; text-align: center; }
+.tv-dart-fresh { color: var(--accent); border-color: var(--accent);
+                 animation: dartPop .35s ease; }
+@keyframes dartPop {
+  0%   { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
 .tv-lb-avg-inline { font-size: 1rem; color: var(--muted); white-space: nowrap; }
 
 /* Column 3 — remaining score, right-aligned */

@@ -53,6 +53,10 @@
     </div>
 
     <button class="start-btn" id="start-game-btn">START GAME</button>
+
+    <button class="tv-link-btn" onclick="window.open(location.pathname + '?view=display', '_blank')">
+      📺 Open TV Display
+    </button>
   </div>
 
   <!-- GAME SCREEN -->
@@ -79,6 +83,8 @@
     </div>
 
     <div id="bust-banner" class="bust-banner hidden">BUST!</div>
+
+    <div id="review-banner" class="review-banner hidden">REVIEW — EDIT OR CONFIRM</div>
 
     <div class="numpad">
       <button class="numpad-btn" data-n="1">1</button>
@@ -110,6 +116,10 @@
       <button class="numpad-btn btn-dbl"  id="btn-dbl">D</button>
       <button class="numpad-btn btn-trpl" id="btn-trpl">T</button>
       <button class="numpad-btn btn-del"  id="btn-del">⌫</button>
+    </div>
+
+    <div id="review-action" class="review-action hidden">
+      <button class="confirm-visit-btn" id="confirm-visit-btn">✓ CONFIRM VISIT</button>
     </div>
 
     <div class="score-strip" id="score-strip"></div>

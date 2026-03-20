@@ -157,8 +157,8 @@ const randTile = document.createElement('button');
 randTile.className = 'cp-swatch cp-random-tile';
 randTile.textContent = '?';
 randTile.title = 'Pick a random unused colour';
-randTile.style.background = '#ffee58';
-randTile.style.color = '#1a1a00';
+randTile.style.background = '#424242';
+randTile.style.color = '#ffffff';
 randTile.style.fontFamily = 'var(--font-head)';
 randTile.style.fontSize = '1.1rem';
 randTile.addEventListener('click', e => {
@@ -372,6 +372,7 @@ document.getElementById('end-game-btn').addEventListener('click', async () => {
                  currentRound: 0, gameOver: false, winner: null };
   advancing      = false;
   commitHistory  = [];
+  _lastRoundsKey = null;
   resetDartUI();
 
   // Go back to setup screen
@@ -405,6 +406,7 @@ document.getElementById('start-game-btn').addEventListener('click', async () => 
   };
   await writeAll(newState);
   state = newState;
+  _lastRoundsKey = null;
   document.getElementById('winner-overlay').classList.add('hidden');
   showGameScreen();
 });
@@ -416,7 +418,31 @@ let modifier       = null;
 let dartsThisVisit = [];
 let isBust         = false;
 let advancing      = false;
+let reviewMode     = false;   // true when all slots loaded from undo — numpad locked
 let commitHistory  = [];   // stack — every visit pushed, ⌫ pops
+
+function enterReviewMode() {
+  reviewMode = true;
+  // Disable all numpad buttons except ⌫
+  document.querySelectorAll('.numpad-btn:not(#btn-del)').forEach(b => b.disabled = true);
+  document.getElementById('review-banner').classList.remove('hidden');
+  document.getElementById('review-action').classList.remove('hidden');
+}
+
+function exitReviewMode() {
+  reviewMode = false;
+  document.querySelectorAll('.numpad-btn').forEach(b => b.disabled = false);
+  document.getElementById('review-banner').classList.add('hidden');
+  document.getElementById('review-action').classList.add('hidden');
+}
+
+document.getElementById('confirm-visit-btn').addEventListener('click', () => {
+  if (!reviewMode || advancing) return;
+  exitReviewMode();
+  // Treat as if the 3rd dart was just entered — commit immediately
+  advancing = true;
+  commitVisit(false);
+});
 
 function showGameScreen() {
   document.getElementById('setup-screen').style.display = 'none';
@@ -525,6 +551,14 @@ function enterDart(baseValue, label) {
   dartsThisVisit.push({ display, value });
   updateDartPreview();
 
+  // Push live dart state immediately so TV tab/device updates without waiting for commit
+  patch({
+    'darts/liveDarts': {
+      player: state.currentPlayer,
+      darts:  dartsThisVisit.map(d => ({ display: d.display, value: d.value }))
+    }
+  }).catch(() => {}); // fire-and-forget, non-critical
+
   const cp    = state.players?.[state.currentPlayer];
   if (!cp) return;
   const total = dartsThisVisit.reduce((s, d) => s + d.value, 0);
@@ -607,7 +641,8 @@ async function advancePlayer() {
   const nextKey = keys[nextIdx];
   const newRound = nextIdx === 0 ? state.currentRound + 1 : state.currentRound;
 
-  const updates = { 'darts/currentPlayer': nextKey, 'darts/currentRound': newRound };
+  const updates = { 'darts/currentPlayer': nextKey, 'darts/currentRound': newRound,
+                    'darts/liveDarts': null };
   if (nextIdx === 0) updates[`darts/rounds/r${newRound}`] = {};
 
   await patch(updates);
@@ -637,7 +672,7 @@ async function goToPreviousPlayer() {
     console.error('Undo write failed:', err);
     state = snapshot;
   }
-  // Restore the darts that were committed so the scorer can correct them
+  // Restore committed darts into the slots
   dartsThisVisit = darts || [];
   isBust         = false;
   modifier       = null;
@@ -646,16 +681,34 @@ async function goToPreviousPlayer() {
   updateDartPreview();
   renderScoreStrip();
   updateCurrentPlayerHeader();
+
+  // Enter review mode if there are darts to inspect
+  if (dartsThisVisit.length > 0) enterReviewMode();
 }
 
 function handleDelete() {
   if (advancing) return;
+
   if (dartsThisVisit.length > 0) {
-    dartsThisVisit.pop();
+    const removed = dartsThisVisit.pop();
     isBust = false;
     document.getElementById('bust-banner').classList.add('hidden');
     updateDartPreview();
+
+    // Exit review mode — one slot is now open for re-entry
+    if (reviewMode) {
+      exitReviewMode();
+      // Pre-activate D or T if the removed dart used a modifier
+      if (removed?.display?.startsWith('D') && removed.display !== 'D') {
+        modifier = 'D';
+        document.getElementById('btn-dbl').classList.add('mod-active');
+      } else if (removed?.display?.startsWith('T')) {
+        modifier = 'T';
+        document.getElementById('btn-trpl').classList.add('mod-active');
+      }
+    }
   } else {
+    exitReviewMode();
     goToPreviousPlayer();
   }
 }
@@ -720,6 +773,7 @@ function resetDartUI() {
   dartsThisVisit = [];
   modifier       = null;
   isBust         = false;
+  exitReviewMode();
   clearModBtns();
   document.getElementById('bust-banner').classList.add('hidden');
   updateDartPreview();
@@ -730,18 +784,24 @@ function resetDartUI() {
 // ═══════════════════════════════════════════════════════
 let burnChart = null;
 
+let _lastRoundsKey = null;   // fingerprint of last rendered rounds
+
 function renderDisplayView() {
   if (!state.players) return;
   const hasPlayers = Object.keys(state.players).length > 0;
 
-  // Waiting overlay — only show when no game has been started yet
   document.getElementById('waiting-overlay').classList.toggle('hidden', hasPlayers);
-
   if (!hasPlayers) return;
 
   updateTVHeader();
   renderLeaderboard();
-  renderBurndown();
+
+  // Only rebuild the chart when rounds data actually changed
+  const roundsKey = JSON.stringify(state.rounds);
+  if (roundsKey !== _lastRoundsKey) {
+    _lastRoundsKey = roundsKey;
+    renderBurndown();
+  }
 
   if (state.gameOver && state.winner) {
     showWinner();
@@ -762,14 +822,38 @@ function updateTVHeader() {
 }
 
 function renderLeaderboard() {
-  const list = document.getElementById('tv-lb-list');
-  list.innerHTML = '';
+  const list      = document.getElementById('tv-lb-list');
+  const liveDarts = state.liveDarts || null;
+  list.innerHTML  = '';
   playersSorted().forEach(([key, p], i) => {
     const color   = p.color || PLAYER_COLORS[p.order % PLAYER_COLORS.length];
-    const visits  = lastDarts(key, 3);
-    const avg     = calcAvg(p);
     const isThrow = key === state.currentPlayer;
-    const row     = document.createElement('div');
+    const avg     = calcAvg(p);
+
+    // For the active player: show live darts if available, else last committed
+    let dartDisplay;
+    if (isThrow && liveDarts?.player === key && liveDarts.darts?.length) {
+      const live = liveDarts.darts;
+      dartDisplay = [0, 1, 2].map(i => ({
+        text:  live[i]?.display ?? '—',
+        fresh: !!live[i]
+      }));
+    } else {
+      dartDisplay = lastDarts(key, 3).map(d => ({ text: d, fresh: false }));
+    }
+
+    // Live score for throwing player
+    const liveTotal = (isThrow && liveDarts?.player === key)
+      ? (liveDarts.darts || []).reduce((s, d) => s + d.value, 0)
+      : 0;
+    const isDoubleOut = state.settings?.finishRule === 'double';
+    const wouldBust   = liveTotal > p.currentScore
+      || (isDoubleOut && p.currentScore - liveTotal === 1);
+    const displayScore = (isThrow && liveTotal > 0 && !wouldBust)
+      ? Math.max(0, p.currentScore - liveTotal)
+      : p.currentScore;
+
+    const row = document.createElement('div');
     row.className = 'tv-lb-row' + (isThrow ? ' throwing' : '');
     row.style.cssText = `border-left: 4px solid ${color};`;
     row.innerHTML = `
@@ -778,13 +862,13 @@ function renderLeaderboard() {
         <span class="tv-lb-name" style="color:${isThrow ? color : ''}">${p.name}</span>
       </div>
       <div class="tv-lb-col-darts">
-        <span class="tv-lb-dart">${visits[0]}</span>
-        <span class="tv-lb-dart">${visits[1]}</span>
-        <span class="tv-lb-dart">${visits[2]}</span>
+        <span class="tv-lb-dart${dartDisplay[0].fresh ? ' tv-dart-fresh' : ''}">${dartDisplay[0].text}</span>
+        <span class="tv-lb-dart${dartDisplay[1].fresh ? ' tv-dart-fresh' : ''}">${dartDisplay[1].text}</span>
+        <span class="tv-lb-dart${dartDisplay[2].fresh ? ' tv-dart-fresh' : ''}">${dartDisplay[2].text}</span>
         <span class="tv-lb-avg-inline">⌀ ${avg}</span>
       </div>
       <div class="tv-lb-col-score">
-        <span class="tv-lb-score" style="color:${color}">${p.currentScore}</span>
+        <span class="tv-lb-score" style="color:${color}">${displayScore}</span>
       </div>
     `;
     list.appendChild(row);
