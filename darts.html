@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎯 Darts Tournament</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="darts.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <script type="module" src="darts.js"></script>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     SCORE VIEW  (?view=score  or default)
+════════════════════════════════════════════ -->
+<div id="view-score" class="view">
+
+  <!-- SETUP SCREEN -->
+  <div id="setup-screen">
+    <div class="setup-title">🎯 DARTS</div>
+    <div class="setup-subtitle">Set up your tournament</div>
+
+    <div>
+      <div class="section-label">Starting Score</div>
+      <div class="start-score-row">
+        <button class="start-score-btn selected" data-score="301">301</button>
+        <button class="start-score-btn"          data-score="501">501</button>
+        <button class="start-score-btn"          data-score="701">701</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Finish Rule</div>
+      <div class="start-score-row">
+        <button class="start-score-btn selected" data-rule="single">Single Out</button>
+        <button class="start-score-btn"          data-rule="double">Double Out</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label-row">
+        <span class="section-label">Players</span>
+        <button class="randomize-btn" id="randomize-btn">🔀 Randomize Order</button>
+      </div>
+      <div class="players-list" id="players-list"></div>
+      <button class="add-player-btn" id="add-player-btn" style="margin-top:8px">
+        <span>＋</span> Add Player
+      </button>
+    </div>
+
+    <button class="start-btn" id="start-game-btn">START GAME</button>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="game-screen" style="display:none; flex-direction:column;">
+
+    <div class="current-player-bar">
+      <div>
+        <div class="bar-label">Throwing</div>
+        <div class="current-name" id="gs-name">—</div>
+      </div>
+      <div style="text-align:right">
+        <div class="bar-label">Remaining</div>
+        <div class="current-score" id="gs-score">—</div>
+      </div>
+    </div>
+
+    <div id="player-color-bar" style="height:4px; width:100%; flex-shrink:0;"></div>
+
+    <div class="dart-preview">
+      <div class="dart-slot" id="d1">—</div>
+      <div class="dart-slot" id="d2">—</div>
+      <div class="dart-slot" id="d3">—</div>
+      <div class="dart-visit-total" id="visit-total">0</div>
+    </div>
+
+    <div id="bust-banner" class="bust-banner hidden">BUST!</div>
+
+    <div class="numpad">
+      <button class="numpad-btn" data-n="1">1</button>
+      <button class="numpad-btn" data-n="2">2</button>
+      <button class="numpad-btn" data-n="3">3</button>
+      <button class="numpad-btn" data-n="4">4</button>
+      <button class="numpad-btn" data-n="5">5</button>
+
+      <button class="numpad-btn" data-n="6">6</button>
+      <button class="numpad-btn" data-n="7">7</button>
+      <button class="numpad-btn" data-n="8">8</button>
+      <button class="numpad-btn" data-n="9">9</button>
+      <button class="numpad-btn" data-n="10">10</button>
+
+      <button class="numpad-btn" data-n="11">11</button>
+      <button class="numpad-btn" data-n="12">12</button>
+      <button class="numpad-btn" data-n="13">13</button>
+      <button class="numpad-btn" data-n="14">14</button>
+      <button class="numpad-btn" data-n="15">15</button>
+
+      <button class="numpad-btn" data-n="16">16</button>
+      <button class="numpad-btn" data-n="17">17</button>
+      <button class="numpad-btn" data-n="18">18</button>
+      <button class="numpad-btn" data-n="19">19</button>
+      <button class="numpad-btn" data-n="20">20</button>
+
+      <button class="numpad-btn btn-miss" id="btn-miss">O</button>
+      <button class="numpad-btn btn-bull" id="btn-bull">25</button>
+      <button class="numpad-btn btn-dbl"  id="btn-dbl">D</button>
+      <button class="numpad-btn btn-trpl" id="btn-trpl">T</button>
+      <button class="numpad-btn btn-del"  id="btn-del">⌫</button>
+    </div>
+
+    <div class="score-strip" id="score-strip"></div>
+
+    <button class="end-game-btn" id="end-game-btn">⏹ End Game</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     DISPLAY VIEW  (?view=display)
+════════════════════════════════════════════ -->
+<div id="view-display" class="view">
+
+  <div id="waiting-overlay">
+    <div class="waiting-icon">🎯</div>
+    <div class="waiting-title">WAITING FOR GAME</div>
+    <div class="waiting-sub">Set up players on the scoring device</div>
+  </div>
+
+  <div class="tv-header">
+    <div class="tv-title">🎯 DARTS</div>
+    <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+      <div class="tv-round-badge" id="tv-round">ROUND 1</div>
+      <div class="tv-rule-badge"  id="tv-rule-badge">SINGLE OUT</div>
+    </div>
+    <div class="tv-now-throwing">
+      <span class="tv-now-label">Now Throwing</span>
+      <span class="tv-now-name" id="tv-now-name">—</span>
+    </div>
+  </div>
+
+  <div class="tv-body">
+    <div class="tv-chart-wrap">
+      <div class="tv-chart-title">Score Burndown</div>
+      <canvas id="burndown-chart"></canvas>
+    </div>
+    <div class="tv-leaderboard">
+      <div class="tv-lb-title">STANDINGS</div>
+      <div id="tv-lb-list"></div>
+    </div>
+  </div>
+
+  <div id="winner-overlay" class="hidden">
+    <div class="winner-title">🏆 WINNER</div>
+    <div class="winner-name" id="winner-name-txt">—</div>
+    <div class="winner-emoji">🎯🎉🍺</div>
+    <button class="winner-close"
+            onclick="document.getElementById('winner-overlay').classList.add('hidden')">
+      Continue watching
+    </button>
+  </div>
+</div>
+
+</body>
+</html>
