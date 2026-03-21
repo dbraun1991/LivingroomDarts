@@ -12,10 +12,11 @@ One phone scores, one laptop/TV displays the live burndown chart.
 - Dartboard-style numpad — numbers 1–20, Bull, Double, Triple, Miss
 - Auto-advances to the next player after 3 darts (no confirm button needed)
 - Unlimited undo — ⌫ on empty slots walks back through the entire game history
+- **Review mode** — after undo, previous darts shown and locked; ⌫ to correct, ✓ to re-confirm
 - Per-player colour coding: picked in setup, shown everywhere in both views
 - Live burndown chart on the TV — updates within ~100ms over the same Wi-Fi
-- Last 3 individual dart scores and running average shown per player in both views
-- Live score countdown as each dart is entered
+- Score counts down **live** as each dart is entered — phone and TV simultaneously
+- Last 3 individual dart scores shown per player in both views with live updates
 
 ---
 
@@ -45,7 +46,7 @@ One phone scores, one laptop/TV displays the live burndown chart.
 └── README.md
 ```
 
-All three code files (`darts.html`, `darts.css`, `darts.js`) must sit in the same folder.
+All three code files must sit in the same folder.
 
 ---
 
@@ -63,8 +64,9 @@ Then open in your browser:
 | Phone (scoring) | `http://localhost:8000/darts.html` |
 | TV / laptop (display) | `http://localhost:8000/darts.html?view=display` |
 
-> The app cannot be opened as a plain `file://` URL — ES modules require HTTP.  
-> The Python server above is all you need for local single-device play.
+> The app cannot be opened as a plain `file://` URL — ES modules require HTTP.
+
+The setup screen also has a **📺 Open TV Display** button that opens the display view in a new tab.
 
 **Hard-reload after updating files:** `Cmd+Shift+R` (Mac) · `Ctrl+Shift+R` (Windows)
 
@@ -79,7 +81,7 @@ Then open in your browser:
    - 6 columns: Red · Orange · Green · Cyan · Blue · Purple
    - 5 rows: Pastel → Light → Vivid → Dark → Very Dark
    - Bottom row: neutral greys + bright yellow
-   - **?** tile picks a random unused colour automatically
+   - **?** tile (dark grey, bottom-right) picks a random unused colour
 5. Use **🔀 Randomize Order** to shuffle the throwing order
 6. Tap **START GAME**
 
@@ -114,7 +116,7 @@ Players, colours, starting score, and finish rule are all remembered when return
 | T | Triple modifier — tap T, then a number (T+20 = 60) |
 | D + 25 | Bullseye (50 pts) |
 | ⌫ | Delete last entered dart |
-| ⌫ on empty | Undo last visit, return to previous player |
+| ⌫ on empty | Undo last visit, enter review mode |
 
 D and T act as toggles — tap again to deactivate without entering a dart.
 
@@ -133,13 +135,25 @@ D and T act as toggles — tap again to deactivate without entering a dart.
 | Single Out | Visit total exceeds remaining score |
 | Double Out | Visit total exceeds remaining score, **or** leaves exactly 1 remaining |
 
+### Review mode
+
+After pressing ⌫ on empty slots, the previous player's darts are restored and **review mode** activates:
+
+- Blue `REVIEW — EDIT OR CONFIRM` banner appears
+- All numpad buttons except ⌫ are **disabled**
+- Green **✓ CONFIRM VISIT** button appears
+
+From review mode:
+- **✓ CONFIRM VISIT** — re-submits the visit as-is
+- **⌫** — removes the last dart and exits review mode. If the removed dart used D or T, that modifier is **pre-activated** automatically
+
 ### Player strip
 
-Below the numpad, all players are shown in throwing order. The active player's row is highlighted in their colour. Each row shows: name · last 3 individual dart scores (— if not yet thrown) · average · remaining score.
+Three-column layout per row: name (left) · last 3 individual dart scores with live updates (centre) · remaining score counting down live (right).
 
 ### End Game
 
-The **⏹ End Game** button at the bottom returns to the setup screen. Player names and colours are remembered for the next game. The winner overlay is cleared on both devices.
+**⏹ End Game** returns to setup. Player names and colours are remembered. Winner overlay cleared on both devices.
 
 ---
 
@@ -147,36 +161,25 @@ The **⏹ End Game** button at the bottom returns to the setup screen. Player na
 
 | Element | Description |
 |---------|-------------|
-| **Burndown chart** | One coloured line per player, score descending toward 0 as rounds progress. |
-| **Standings sidebar** | Ranked by current score. Each row: position · name · last 3 individual dart scores · average (⌀) · remaining score (counts down live). Left border and score in player colour. Active player highlighted. |
-| **Now Throwing** | Top-right header. Player name shown in their chosen colour. |
-| **Round / Finish Rule** | Centre header. Shows current round number and Single/Double Out badge. |
-| **Waiting overlay** | Shown when no game is active — animated dart icon. Disappears when a game starts. Returns on End Game. |
-| **Winner overlay** | Appears automatically when a player reaches 0. Name shown in player's colour. Dismiss with "Continue watching". Cleared on new game start. |
+| **Burndown chart** | One coloured line per player. Only redraws on visit completion — not on individual darts. |
+| **Standings sidebar** | Three-column layout: name · last 3 individual dart scores (live, with pop animation on fresh darts) · remaining score (live). |
+| **Now Throwing** | Player name in their chosen colour. |
+| **Round / Finish Rule** | Round number + Single/Double Out badge. |
+| **Waiting overlay** | Shown when no game active. Returns on End Game. |
+| **Winner overlay** | Shown on win, cleared on new game. |
 
-The TV view is **read-only** — it never writes to storage.
+Read-only — never writes to storage.
 
 ---
 
 ## Going live (Firebase)
 
-For phone + TV on different devices over Wi-Fi, Firebase Realtime Database provides ~100ms sync with no server required.
-
 1. Create a project at [console.firebase.google.com](https://console.firebase.google.com)
-2. Enable **Realtime Database** → start in test mode, choose the EU region
-3. Open `darts.js` and paste your config into the `firebaseConfig` block at the top
-4. Push all three files to a **GitHub Pages** repository
+2. Enable **Realtime Database** → test mode, EU region
+3. Paste your config into the `firebaseConfig` block at the top of `darts.js`
+4. Push all three files to **GitHub Pages**
 
-```
-your-repo/
-  ├── darts.html
-  ├── darts.css
-  └── darts.js
-```
-
-The app detects the placeholder config and falls back to `localStorage` automatically — so local play always works without any changes.
-
-**On the night:** open the TV display tab *before* starting the game to pre-warm the Firebase connection (first connect after idle can take 2–5 seconds).
+Falls back to `localStorage` automatically when config is placeholder.
 
 ---
 
@@ -184,9 +187,10 @@ The app detects the placeholder config and falls back to `localStorage` automati
 
 | Action | Shortcut / method |
 |--------|------------------|
-| Hard reload (clear cache) | `Cmd+Shift+R` / `Ctrl+Shift+R` |
-| Open DevTools | `Cmd+Option+I` / `F12` |
-| Keep cache disabled | DevTools → Network → ☑ Disable cache |
+| Hard reload | `Cmd+Shift+R` / `Ctrl+Shift+R` |
+| Open TV display | 📺 button on setup, or add `?view=display` to URL |
 | Undo last visit | ⌫ on empty numpad |
-| End game, keep players | ⏹ End Game button |
+| Correct a dart | ⌫ in review mode, re-enter |
+| Confirm reviewed visit | ✓ CONFIRM VISIT |
+| End game | ⏹ End Game button |
 | Start local server | `python3 -m http.server 8000` |
