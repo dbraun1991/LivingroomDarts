@@ -8,13 +8,88 @@ that need to reason about, modify, or extend this codebase.
 
 ## 1. Project Overview
 
+### File tree
+
+```
+.
+├── dist/                        ← build output — commit this for GitHub Pages
+│   └── index.html               ← single self-contained file, works on file://
+├── src/
+│   ├── index.html               ← HTML template
+│   ├── css/
+│   │   ├── base.css             ← variables, reset, shared utilities
+│   │   ├── setup.css            ← setup screen styles
+│   │   ├── game.css             ← phone/score view styles
+│   │   └── tv.css               ← TV display styles
+│   └── js/
+│       ├── main.js              ← entry point, routing, boot
+│       ├── state.js             ← shared state object, pure helpers
+│       ├── storage.js           ← localStorage abstraction
+│       ├── colors.js            ← palette, colour picker popup
+│       ├── setup.js             ← setup screen logic
+│       ├── game.js              ← dart pipeline, undo, review mode
+│       ├── render-score.js      ← phone view DOM renderers
+│       └── render-tv.js         ← TV view DOM renderers + chart
+├── docs/
+│   ├── GameSetup_view.png
+│   ├── InGame_view.png
+│   ├── TV_ingame.png
+│   └── TV_preview.png
+├── package.json
+├── vite.config.js
+├── LICENSE
+├── README.md
+├── AGENTS.md
+└── Changelog.md
+```
+
+### Source files
+
 | File | Role |
 |------|------|
-| `darts.html` | DOM structure only |
-| `darts.css` | All styles — phone and TV views |
-| `darts.js` | Single ES module — all logic and state |
+| `src/index.html` | DOM structure only |
+| `src/css/base.css` | Variables, reset, shared utilities |
+| `src/css/setup.css` | Setup screen styles |
+| `src/css/game.css` | Phone/score view styles |
+| `src/css/tv.css` | TV display styles |
+| `src/js/main.js` | Entry point — routing, boot, wires onStateChange |
+| `src/js/state.js` | Shared state object, pure helpers |
+| `src/js/storage.js` | localStorage abstraction |
+| `src/js/colors.js` | PALETTE constant, colour picker popup |
+| `src/js/setup.js` | Setup screen logic |
+| `src/js/game.js` | Dart entry pipeline, undo, review mode |
+| `src/js/render-score.js` | Phone view DOM renderers |
+| `src/js/render-tv.js` | TV view DOM renderers + Chart.js |
+
+### Build output
+
+| File | Role |
+|------|------|
+| `dist/index.html` | Single self-contained file — all JS and CSS inlined by Vite. Works on `file://` and GitHub Pages. |
+
+### Tooling
+
+| Tool | Purpose |
+|------|---------|
+| Vite | Dev server + build |
+| vite-plugin-singlefile | Inlines all assets into one HTML file at build time |
 
 Two views from the same file, determined by `?view=display` URL parameter.
+
+### Module dependency graph
+
+```
+state.js          ← no deps
+storage.js        ← no deps
+colors.js         ← no deps
+render-score.js   ← state, colors
+render-tv.js      ← state, colors
+game.js           ← state, storage, render-score
+setup.js          ← state, storage, colors, game, render-tv
+main.js           ← state, storage, setup, game, render-tv
+```
+
+No circular dependencies. `render-score` and `render-tv` are purely passive.
 
 ---
 
@@ -58,62 +133,112 @@ state {
 }
 ```
 
-**rounds format:** `{ darts: [...], bust }` per player per round — individual dart objects, not totals. `renderBurndown` handles legacy number format via typeof guard.
+**rounds format:** `{ darts: [...], bust }` per player per round — individual dart objects,
+not totals. `_renderBurndown` handles legacy number format via typeof guard.
 
-**liveDarts:** fire-and-forget field written to storage on every `enterDart()`. TV listener reacts immediately to update chips and score without waiting for visit commit. Cleared to `null` on `advancePlayer()`.
+**liveDarts:** fire-and-forget field written to storage on every `enterDart()`. TV listener
+reacts immediately to update chips and score without waiting for visit commit.
+Cleared to `null` on `_advancePlayer()`.
 
 ---
 
-## 3. Storage Abstraction
+## 3. Storage (`storage.js`)
+
+localStorage-only. Firebase has been removed.
 
 ### `writeAll(newState)`
 Replaces entire state. Used for: game start, undo, End Game.
-End Game writes structured reset (`players: {}, rounds: {}, ...`) — never bare `{}`.
+End Game writes structured reset via `createResetState()` — never bare `{}`.
 
 ### `patch(updates)`
-Firebase-path flat map. Null values delete keys.
+Flat-path map. Null values delete keys.
+Path format: `'darts/players/p0/currentScore'` (leading `darts/` prefix stripped internally).
 Used for: scoring, player advance, `liveDarts` writes.
 
 ### `listen(callback)`
-Persistent listener → `onStateChange(data)`.
-Firebase: `onValue()`. localStorage: `storage` event + `darts-changed` CustomEvent.
+Synchronous — no async init required. Registers cross-tab (`storage` event) and
+same-tab (`darts-changed` CustomEvent) listeners. Fires immediately with current state.
 
 ---
 
-## 4. Colour System
+## 4. State helpers (`state.js`)
+
+### `state` (exported object)
+Single mutable object. All modules import the same reference. `onStateChange` calls
+`Object.assign(state, data)` to update in-place — no module ever holds a stale copy.
+
+### `onStateChange(data)`
+Called by `main.js` on every storage event. Merges incoming data into `state`.
+
+### `createResetState(startScore, finishRule)`
+Factory for the structured reset object used by both start-game and end-game.
+Single source of truth — never inline the reset shape elsewhere.
+
+### `playersSorted()`
+`Object.entries(state.players).sort((a,b) => a[1].order - b[1].order)`
+Always use — never rely on key insertion order.
+
+### `calcAvg(p)`
+`(startScore - currentScore) / totalDarts * 3`. Returns `'—'` if no darts.
+
+### `lastDarts(playerKey, count = 3)`
+Flattens individual dart objects across all rounds for a player.
+Returns last `count` `.display` strings, left-padded with `'—'`.
+
+---
+
+## 5. Colour System (`colors.js`)
 
 **PALETTE:** 35 hex values, 6×6 grid (35 swatches + 1 `?` tile).
 - Columns: Red · Orange · Green · Cyan · Blue · Purple
 - Rows: Pastel → Light → Vivid → Dark → Very Dark
 - Row 6: greys + bright yellow. Near-black removed (invisible on dark background).
 
+### `pickUnusedColor(players)`
+Takes the players array as argument — no implicit coupling to setup state.
+Picks randomly from colours not yet assigned. Falls back to full palette if all taken.
+
+### `openColorPicker(swatchBtn, playerIndex, players, onPick)`
+Positions popup below `swatchBtn`. Calls `onPick(playerIndex, hex)` on selection.
+Decoupled from `setup.js` via callback — `colors.js` has no knowledge of `setupPlayers`.
+
 **Colour picker popup:** singleton `<div class="color-picker-popup">` appended to body.
 35 `.cp-swatch` buttons + `.cp-random-tile` (dark grey `#424242`, white `?`).
-`openColorPicker(btn, playerIndex)` positions below swatch.
-`pickUnusedColor()` picks randomly from unassigned colours.
 
 ---
 
-## 5. Setup Flow
+## 6. Setup Flow (`setup.js`)
 
 Local vars (never persisted): `setupPlayers[]`, `selectedStart`, `selectedRule`.
 
+**`renderSetup()`** — public export, called once from `main.js` on boot.
+Calls `_renderPlayerList()`, `_syncScoreButtons()`, `_syncRuleButtons()`.
+
 **Start Game:**
-1. Map `setupPlayers` → Firebase player shape
-2. `writeAll(newState)`, `_lastRoundsKey = null`
-3. Hide `#winner-overlay`, call `showGameScreen()`
+1. Map `setupPlayers` → player shape
+2. `resetChart()` — destroys existing Chart.js instance before new game
+3. `writeAll(newState)`, `Object.assign(state, newState)`
+4. Hide `#winner-overlay`, call `showGameScreen()`
 
 **End Game:**
 1. Preserve names + colours back into `setupPlayers`
-2. `writeAll(resetState)` — structured reset
-3. Hide `#winner-overlay`, reset `advancing`/`commitHistory`/`_lastRoundsKey`
-4. Show setup screen
+2. `resetChart()`, `writeAll(createResetState(...))`, `Object.assign(state, resetState)`
+3. Hide `#winner-overlay`, call `resetGame()`
+4. Show setup screen, sync button states
 
 **📺 Open TV Display:** `window.open(location.pathname + '?view=display', '_blank')`
 
 ---
 
-## 6. Dart Entry Pipeline
+## 7. Dart Entry Pipeline (`game.js`)
+
+### Public exports
+
+| Export | Called by | Purpose |
+|--------|-----------|---------|
+| `showGameScreen()` | `setup.js` | Switches to game screen, initialises UI |
+| `syncScoreView()` | `main.js` | Syncs screen state from storage on change |
+| `resetGame()` | `setup.js` | Clears `advancing`, `commitHistory`, calls `resetDartUI()` |
 
 ### Local UI state
 
@@ -131,26 +256,17 @@ Local vars (never persisted): `setupPlayers[]`, `selectedStart`, `selectedRule`.
 Guards: `dartsThisVisit.length >= 3 || isBust || advancing`.
 
 After pushing dart:
-1. `updateDartPreview()` — slots + live score
+1. `_updateDartPreview()` — slots + live score
 2. `patch({ liveDarts })` fire-and-forget — TV updates in ~100ms
 3. Win check → `setTimeout(commitVisit(false), 900)`
 4. Bust check → banner + `setTimeout(commitVisit(true), 1500)`
 5. 3rd dart → `setTimeout(commitVisit(false), 900)`
 
-### `updateDartPreview()`
+### `_updateDartPreview()`
 
 Updates d1/d2/d3 slots and visit total.
-Computes live score with bust guard (same condition as enterDart).
-Calls `renderScoreStripLive(total, wouldBust)`.
-
-### `renderScoreStripLive(visitTotal, wouldBust)`
-
-Patches DOM directly — no full rebuild:
-- Score strip: `.score-row.active-player` → `.sr-score` + `.sr-dart` chips
-- TV leaderboard: `.tv-lb-row.throwing` → `.tv-lb-score` + `.tv-lb-dart` chips
-- Fresh chips get `color: var(--accent)` inline
-
-Note: only works in same-tab scenario. Cross-tab/device TV updates come via `liveDarts` storage field.
+Computes `wouldBust` independently (same condition as `enterDart`).
+Calls `renderScoreStripLive(dartsThisVisit, wouldBust)` — passes array as argument.
 
 ### `commitVisit(bust)`
 
@@ -158,19 +274,19 @@ Note: only works in same-tab scenario. Cross-tab/device TV updates come via `liv
 2. Build `roundEntry = { darts: [...], bust }` — individual dart objects
 3. Patch score, dart count, round entry
 4. Win: patch `gameOver`+`winner`, `resetDartUI()`
-5. Otherwise: `patch()` → `advancePlayer()`
+5. Otherwise: `patch()` → `_advancePlayer()`
 6. `finally`: `advancing = false`, `renderScoreStrip()`, `updateCurrentPlayerHeader()`
 
-### `advancePlayer()`
+### `_advancePlayer()`
 
 Patches `currentPlayer`, `currentRound`, `liveDarts: null`, new round key if wrapping.
 Calls `resetDartUI()`.
 
 ---
 
-## 7. Review Mode
+## 8. Review Mode (`game.js`)
 
-Activated when `goToPreviousPlayer()` restores darts with `length > 0`.
+Activated when `_goToPreviousPlayer()` restores darts with `length > 0`.
 
 ### `enterReviewMode()`
 - `reviewMode = true`
@@ -182,19 +298,18 @@ Activated when `goToPreviousPlayer()` restores darts with `length > 0`.
 - Re-enables all `.numpad-btn`
 - Hides `#review-banner` and `#review-action`
 
-### `goToPreviousPlayer()`
+### `_goToPreviousPlayer()`
 1. Pop `{ state: snapshot, darts }` from `commitHistory`
 2. `writeAll(snapshot)` — atomic full state restore
 3. `dartsThisVisit = darts`, clear bust/modifier/banner
-4. `updateDartPreview()`, `renderScoreStrip()`, `updateCurrentPlayerHeader()`
+4. `_updateDartPreview()`, `renderScoreStrip()`, `updateCurrentPlayerHeader()`
 5. If darts exist → `enterReviewMode()`
 
-### `handleDelete()` in review mode
+### `_handleDelete()` in review mode
 1. Pop last dart, call `exitReviewMode()`
 2. Inspect removed dart display:
    - Starts with `D` (not just `D`) → `modifier = 'D'`, activate D button
    - Starts with `T` → `modifier = 'T'`, activate T button
-   - Otherwise → no modifier
 3. Normal entry resumes
 
 ### `#confirm-visit-btn`
@@ -205,66 +320,66 @@ Always calls `exitReviewMode()` — review mode cannot persist across advances.
 
 ---
 
-## 8. Score View Render Functions
+## 9. Score View Renderers (`render-score.js`)
+
+Passive — reads `state`, writes DOM only. Never writes storage.
 
 ### `renderScoreStrip()`
-Three-column flex per row:
+Full rebuild. Three-column flex per row:
 - `.sr-col-name`: arrow + name (coloured if active)
 - `.sr-col-darts`: 3× `.sr-dart` + avg — centred
 - `.sr-col-score`: remaining score — right
 
-Dart chips from `lastDarts(key, 3)`. Live updates via `renderScoreStripLive()`.
-
 ### `updateCurrentPlayerHeader()`
 Updates `#gs-name` (coloured), `#gs-score`, `#player-color-bar` background.
 
+### `renderScoreStripLive(dartsThisVisit, wouldBust)`
+Patches DOM directly — no full rebuild. Receives `dartsThisVisit` array as argument.
+Updates score strip active row and TV leaderboard throwing row (same-tab only).
+Cross-tab/device TV updates come via `liveDarts` storage field.
+
 ---
 
-## 9. TV Display Render Functions
+## 10. TV Display Renderers (`render-tv.js`)
+
+Passive — reads `state`, writes DOM only. Never writes storage.
+
+### Public exports
+
+| Export | Called by | Purpose |
+|--------|-----------|---------|
+| `renderDisplayView()` | `main.js` | Full TV render, driven by `onStateChange` |
+| `resetChart()` | `setup.js` | Destroys Chart.js instance, resets `_lastRoundsKey` |
 
 ### `renderDisplayView()`
 ```
 hasPlayers → toggle #waiting-overlay
 if !hasPlayers → return
-updateTVHeader()
-renderLeaderboard()
-if _lastRoundsKey changed → renderBurndown(); _lastRoundsKey = roundsKey
-if gameOver && winner → showWinner()
+_updateHeader()
+_renderLeaderboard()
+if _lastRoundsKey changed → _renderBurndown(); update _lastRoundsKey
+if gameOver && winner → _showWinner()
 else → hide #winner-overlay
 ```
 
 ### Chart update guard
 `_lastRoundsKey = JSON.stringify(state.rounds)` compared on every render.
-`renderBurndown()` skipped if rounds unchanged (e.g. only `liveDarts` changed).
-Reset to `null` on game start and End Game.
+`_renderBurndown()` skipped if rounds unchanged (e.g. only `liveDarts` changed).
+Reset to `null` via `resetChart()` on game start and End Game.
 
-### `renderLeaderboard()`
+### `resetChart()`
+Calls `_burnChart.destroy()` before nulling — fixes Y-axis max not resetting
+when `startScore` changes between games (was a known bug in the previous version).
+
+### `_renderLeaderboard()`
 Three-column layout. For throwing player:
 - Uses `state.liveDarts` if `player` matches → live dart chips + `.tv-dart-fresh` class
 - `.tv-dart-fresh` → accent colour + `dartPop` scale animation
 - Live score from `liveDarts.darts` sum, frozen on bust
 
-### `renderBurndown()`
+### `_renderBurndown()`
 Chart.js line chart. Reads `rounds[rk][key]` as `{ darts, bust }`, sums dart values.
-Created once, updated with `.update()`.
-
----
-
-## 10. Helper Functions
-
-### `playersSorted()`
-`Object.entries(state.players).sort((a,b) => a[1].order - b[1].order)`
-Always use — never rely on key insertion order.
-
-### `calcAvg(p)`
-`(startScore - currentScore) / totalDarts * 3`. Returns `'—'` if no darts.
-
-### `lastDarts(playerKey, count = 3)`
-Flattens individual dart objects across all rounds for a player.
-Returns last `count` `.display` strings, left-padded with `'—'`.
-
-### `pickUnusedColor()`
-Filters PALETTE against `setupPlayers` colours. Random from free pool.
+Created once on first call, updated with `.update()` on subsequent renders.
 
 ---
 
@@ -272,7 +387,7 @@ Filters PALETTE against `setupPlayers` colours. Random from free pool.
 
 | Trigger | Score view | TV view |
 |---------|-----------|---------|
-| Start Game | Game screen, hide winner, `_lastRoundsKey = null` | Hide waiting overlay |
+| Start Game | Game screen, hide winner | Hide waiting overlay |
 | End Game | Setup screen, hide winner, clear history | Show waiting overlay |
 | Undo (⌫ empty) | Restore state + darts, enter review mode | Full re-render |
 | ⌫ in review | Remove dart, exit review, restore modifier | Live chip update |
@@ -285,10 +400,10 @@ Filters PALETTE against `setupPlayers` colours. Random from free pool.
 ## 12. Known Constraints
 
 - **liveDarts errors silently ignored** (`.catch(() => {})`). TV falls back to last committed darts.
-- **burnChart singleton**: Y-axis max not reset between games if `startScore` changes. Fix: `burnChart.destroy(); burnChart = null;` before `writeAll(newState)`.
 - **Undo history is session-only**: page reload clears `commitHistory`.
 - **Review mode is score-view only**: TV never enters review mode.
 - **Same-tab sync**: `storage` event doesn't fire in writing tab — `darts-changed` CustomEvent covers same-tab.
+- **Google Fonts and Chart.js require network**: loaded via CDN. The built `dist/index.html` works on `file://` but fonts and chart will not render without an internet connection.
 
 ---
 
@@ -296,8 +411,8 @@ Filters PALETTE against `setupPlayers` colours. Random from free pool.
 
 | Feature | Where to add |
 |---------|-------------|
-| Checkout suggestions | New `checkouts.js` lookup; read in `updateDartPreview()` + `renderLeaderboard()` based on remaining score and darts left |
+| Checkout suggestions | New `checkouts.js` lookup; read in `_updateDartPreview()` + `_renderLeaderboard()` based on remaining score and darts left |
 | Double-out per-dart validation | `enterDart()` win check — verify last dart display starts with `D` |
-| Sound effects | `commitVisit()`, `showWinner()`, `enterReviewMode()` |
+| Sound effects | `commitVisit()`, `_showWinner()`, `enterReviewMode()` |
 | Stats screen | `?view=stats`, reads `state.rounds` via `lastDarts()` |
 | Multiple legs | Add `legs` to `state.settings`, track per-player win counts |

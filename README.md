@@ -33,42 +33,75 @@ One phone scores, one laptop/TV displays the live burndown chart.
 
 ```
 .
-├── AGENTS.md
-├── darts.css
-├── darts.html
-├── darts.js
-├── docs
+├── dist/                        ← build output — commit this for GitHub Pages
+│   └── index.html               ← single self-contained file, works on file://
+├── src/
+│   ├── index.html               ← HTML template
+│   ├── css/
+│   │   ├── base.css             ← variables, reset, shared utilities
+│   │   ├── setup.css            ← setup screen styles
+│   │   ├── game.css             ← phone/score view styles
+│   │   └── tv.css               ← TV display styles
+│   └── js/
+│       ├── main.js              ← entry point, routing, boot
+│       ├── state.js             ← shared state object, pure helpers
+│       ├── storage.js           ← localStorage abstraction
+│       ├── colors.js            ← palette, colour picker popup
+│       ├── setup.js             ← setup screen logic
+│       ├── game.js              ← dart pipeline, undo, review mode
+│       ├── render-score.js      ← phone view DOM renderers
+│       └── render-tv.js         ← TV view DOM renderers + chart
+├── docs/
 │   ├── GameSetup_view.png
 │   ├── InGame_view.png
 │   ├── TV_ingame.png
 │   └── TV_preview.png
+├── package.json
+├── vite.config.js
 ├── LICENSE
-└── README.md
+├── README.md
+├── AGENTS.md
+└── Changelog.md
 ```
-
-All three code files must sit in the same folder.
 
 ---
 
 ## Running locally
 
 ```bash
-cd /path/to/LivingroomDarts
-python3 -m http.server 8000
+npm install
+npm run dev
 ```
 
 Then open in your browser:
 
 | Device | URL |
 |--------|-----|
-| Phone (scoring) | `http://localhost:8000/darts.html` |
-| TV / laptop (display) | `http://localhost:8000/darts.html?view=display` |
-
-> The app cannot be opened as a plain `file://` URL — ES modules require HTTP.
+| Phone (scoring) | `http://localhost:5173` |
+| TV / laptop (display) | `http://localhost:5173/?view=display` |
 
 The setup screen also has a **📺 Open TV Display** button that opens the display view in a new tab.
 
 **Hard-reload after updating files:** `Cmd+Shift+R` (Mac) · `Ctrl+Shift+R` (Windows)
+
+---
+
+## Building for distribution
+
+```bash
+npm run build
+```
+
+Produces `dist/index.html` — a single self-contained file with all JS and CSS inlined.  
+Works on `file://`, GitHub Pages, or any static host with no server required.
+
+---
+
+## GitHub Pages
+
+1. Run `npm run build`
+2. Commit and push `dist/index.html`
+3. In repository Settings → Pages, set source to the `dist/` folder
 
 ---
 
@@ -147,13 +180,9 @@ From review mode:
 - **✓ CONFIRM VISIT** — re-submits the visit as-is
 - **⌫** — removes the last dart and exits review mode. If the removed dart used D or T, that modifier is **pre-activated** automatically
 
-### Player strip
-
-Three-column layout per row: name (left) · last 3 individual dart scores with live updates (centre) · remaining score counting down live (right).
-
 ### End Game
 
-**⏹ End Game** returns to setup. Player names and colours are remembered. Winner overlay cleared on both devices.
+**⏹ End Game** returns to setup. Player names and colours are remembered.
 
 ---
 
@@ -172,25 +201,15 @@ Read-only — never writes to storage.
 
 ---
 
-## Going live (Firebase)
-
-1. Create a project at [console.firebase.google.com](https://console.firebase.google.com)
-2. Enable **Realtime Database** → test mode, EU region
-3. Paste your config into the `firebaseConfig` block at the top of `darts.js`
-4. Push all three files to **GitHub Pages**
-
-Falls back to `localStorage` automatically when config is placeholder.
-
----
-
 ## Quick reference
 
-| Action | Shortcut / method |
-|--------|------------------|
-| Hard reload | `Cmd+Shift+R` / `Ctrl+Shift+R` |
+| Action | Method |
+|--------|--------|
+| Start dev server | `npm run dev` |
+| Build for distribution | `npm run build` |
 | Open TV display | 📺 button on setup, or add `?view=display` to URL |
 | Undo last visit | ⌫ on empty numpad |
 | Correct a dart | ⌫ in review mode, re-enter |
 | Confirm reviewed visit | ✓ CONFIRM VISIT |
 | End game | ⏹ End Game button |
-| Start local server | `python3 -m http.server 8000` |
+| Hard reload | `Cmd+Shift+R` / `Ctrl+Shift+R` |

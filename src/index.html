@@ -7,16 +7,20 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="darts.css">
+
+  <link rel="stylesheet" href="./css/base.css">
+  <link rel="stylesheet" href="./css/setup.css">
+  <link rel="stylesheet" href="./css/game.css">
+  <link rel="stylesheet" href="./css/tv.css">
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
-  <script type="module" src="darts.js"></script>
+  <script type="module" src="./js/main.js"></script>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════
-     SCORE VIEW  (?view=score  or default)
-════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════
+     SCORE VIEW  (default)
+════════════════════════════════════════════════════════ -->
 <div id="view-score" class="view">
 
   <!-- SETUP SCREEN -->
@@ -54,7 +58,8 @@
 
     <button class="start-btn" id="start-game-btn">START GAME</button>
 
-    <button class="tv-link-btn" onclick="window.open(location.pathname + '?view=display', '_blank')">
+    <button class="tv-link-btn"
+            onclick="window.open(location.pathname + '?view=display', '_blank')">
       📺 Open TV Display
     </button>
   </div>
@@ -82,8 +87,7 @@
       <div class="dart-visit-total" id="visit-total">0</div>
     </div>
 
-    <div id="bust-banner" class="bust-banner hidden">BUST!</div>
-
+    <div id="bust-banner"   class="bust-banner   hidden">BUST!</div>
     <div id="review-banner" class="review-banner hidden">REVIEW — EDIT OR CONFIRM</div>
 
     <div class="numpad">
@@ -128,9 +132,9 @@
   </div>
 </div>
 
-<!-- ═══════════════════════════════════════════
+<!-- ═══════════════════════════════════════════════════════
      DISPLAY VIEW  (?view=display)
-════════════════════════════════════════════ -->
+════════════════════════════════════════════════════════ -->
 <div id="view-display" class="view">
 
   <div id="waiting-overlay">

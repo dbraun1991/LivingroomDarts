@@ -1,0 +1,83 @@
+/* ═══════════════════════════════════════
+   base.css — variables, reset, shared utilities
+   Imported first by all other CSS files via Vite.
+═══════════════════════════════════════ */
+
+/* ── Custom properties ───────────────────────────────── */
+:root {
+  --bg:        #0e0f0e;
+  --surface:   #191c19;
+  --surface2:  #222622;
+  --border:    #2e352e;
+  --green:     #4caf50;
+  --green-dim: #2e7d32;
+  --red:       #e53935;
+  --gold:      #ffc107;
+  --text:      #e8ede8;
+  --muted:     #7a8a7a;
+  --accent:    #76ff7a;
+  --radius:    10px;
+  --font-head: 'Bebas Neue', sans-serif;
+  --font-body: 'Barlow', sans-serif;
+  --font-cond: 'Barlow Condensed', sans-serif;
+}
+
+/* ── Reset ───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  overflow-x: hidden;
+}
+
+/* ── Shared utilities ────────────────────────────────── */
+.hidden { display: none !important; }
+.view        { display: none; height: 100vh; }
+.view.active { display: flex; }
+
+.section-label {
+  font-size: .8rem;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.bar-label {
+  font-size: .7rem;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+/* ── Base element styles ─────────────────────────────── */
+button {
+  font-family: var(--font-body);
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all .15s ease;
+}
+button:active { transform: scale(.95); }
+
+input {
+  font-family: var(--font-body);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-size: 1rem;
+  width: 100%;
+  outline: none;
+  transition: border-color .2s;
+}
+input:focus { border-color: var(--accent); }
+
+/* ── Scrollbars ──────────────────────────────────────── */
+::-webkit-scrollbar       { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
