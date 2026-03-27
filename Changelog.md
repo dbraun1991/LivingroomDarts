@@ -9,6 +9,70 @@ Development was iterative — each entry reflects a discrete change or fix.
 
 ---
 
+## Bug fixes — Bust indicator correctness
+
+### Root cause: `Object.assign` skips deleted keys
+`patch({liveDarts: null})` calls `_setPath` which does `delete obj['liveDarts']` — the key is
+removed from the stored JSON entirely. On the receiving end, `Object.assign(state, data)` silently
+skips keys absent from `data`, so `state.liveDarts` retained its previous stale value after every
+commit. The TV then computed `liveTotal > newScore` against the committed (lower) score → false bust.
+
+### Fixes applied
+
+| Fix | File | Detail |
+|-----|------|--------|
+| `onStateChange` explicitly nulls `liveDarts` when key absent | `state.js` | `if (!('liveDarts' in data)) state.liveDarts = null` |
+| `syncScoreView` skips `_updateDartPreview()` when `advancing` | `game.js` | Prevents same-tab re-render from comparing stale `dartsThisVisit` against newly committed score |
+| `liveDarts: null` added to base commit patch | `game.js` | Clears liveDarts atomically with score update for all outcomes (normal, bust, win) |
+| `computeWouldBust` / `computeIsBust` extracted as pure functions | `state.js` | Shared by `render-tv.js`; guards `liveTotal === 0` as early return |
+
+### Test coverage added (`test/bust.test.js`, 21 tests)
+- `computeWouldBust`: single out and double out, all edge cases including exact win and leaving-1
+- `computeIsBust`: null liveDarts, wrong player, empty darts array, real bust
+- `onStateChange`: verifies `state.liveDarts` becomes `null` when key is absent in incoming patch
+
+### Scenarios that now behave correctly
+- Single out, 1 point remaining after visit → no bust on TV
+- Win to exactly 0 → no bust on TV (hidden or otherwise)
+- Double out, leaving 1 → bust correctly shown
+- Bust mid-visit → bust correctly shown for the 1.5s delay window
+
+---
+
+## UX Pass — Live feedback & TV polish
+
+### Phone view — pre-visit score in header
+- Added `#gs-pre-score` element to the left of `#gs-score` in the current-player bar
+- Shows the committed score at the start of the visit — frozen until the turn ends
+- Same font family and size as the current score, muted colour (`var(--muted)`)
+- Set by `updateCurrentPlayerHeader()` on turn start; not updated during the visit
+
+### Phone view — header score counts down live
+- `_updateDartPreview()` already patched `#gs-score` live, but `syncScoreView()` (triggered by every `liveDarts` storage event) called `updateCurrentPlayerHeader()` which reset it back to the committed value
+- Fixed: `syncScoreView()` now calls `_updateDartPreview()` after `updateCurrentPlayerHeader()` when darts are in progress — restoring the live value immediately
+- Header remaining score now truly counts down per dart in real time
+
+### TV — bust indicator on leaderboard
+- When a bust is detected mid-visit, the throwing player's leaderboard row turns red (`border-color: var(--red); background: #2a0000`)
+- Score column replaced with **BUST!** in red for the duration of the bust delay
+- Implemented in both render paths: full rebuild (`_renderLeaderboard()`) and same-tab live patch (`renderScoreStripLive()`)
+- `isBust` condition: `isThrow && wouldBust && liveDarts?.player === key && liveDarts.darts.length > 0`
+
+### TV — leaderboard left border widths
+- All rows: `border-left-width: 14px` (was inline `4px`)
+- Throwing player row: `border-left-width: 21px`
+- Border colour stays per-player (inline `border-left-color` only — CSS class controls width)
+
+### TV — standings vertically centred
+- Added `justify-content: center` to `.tv-leaderboard` — rows now float in the vertical middle of the sidebar
+
+### Bug fix — TV showed BUST on win
+- On a winning dart, `commitVisit()` patched `currentScore → 0` and `gameOver/winner` but did **not** clear `liveDarts` (only `_advancePlayer()` does that, which is skipped on win)
+- TV received `p.currentScore = 0` with `liveDarts` still set → `liveTotal > 0` → `wouldBust = true` → incorrectly showed BUST
+- Fixed: `'darts/liveDarts': null` added to the win patch in `commitVisit()`, clearing it atomically with the score update
+
+---
+
 ## Refactor — Split into modules (v2.0)
 
 ### Motivation

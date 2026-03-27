@@ -16,7 +16,9 @@ One phone scores, one laptop/TV displays the live burndown chart.
 - Per-player colour coding: picked in setup, shown everywhere in both views
 - Live burndown chart on the TV — updates within ~100ms over the same Wi-Fi
 - Score counts down **live** as each dart is entered — phone and TV simultaneously
+- **Pre-visit score** shown greyed-out next to the live score on the phone — frozen at turn start
 - Last 3 individual dart scores shown per player in both views with live updates
+- **Bust indicator on TV** — throwing player's row turns red and shows BUST! during the bust delay
 
 ---
 

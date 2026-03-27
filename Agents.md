@@ -73,6 +73,9 @@ that need to reason about, modify, or extend this codebase.
 |------|---------|
 | Vite | Dev server + build |
 | vite-plugin-singlefile | Inlines all assets into one HTML file at build time |
+| Vitest | Unit tests — `npm test` — config in `vite.config.js` under `test:` block |
+
+**Test files:** `test/bust.test.js` — 21 tests covering `computeWouldBust`, `computeIsBust`, and `onStateChange` key-deletion behaviour.
 
 Two views from the same file, determined by `?view=display` URL parameter.
 
@@ -169,6 +172,9 @@ Single mutable object. All modules import the same reference. `onStateChange` ca
 
 ### `onStateChange(data)`
 Called by `main.js` on every storage event. Merges incoming data into `state`.
+**Key deletion guard:** `patch({liveDarts: null})` removes the key from stored JSON entirely.
+`Object.assign` silently skips absent keys, so `state.liveDarts` is explicitly set to `null`
+when `'liveDarts'` is not present in `data` — preventing stale values from persisting.
 
 ### `createResetState(startScore, finishRule)`
 Factory for the structured reset object used by both start-game and end-game.
@@ -177,6 +183,15 @@ Single source of truth — never inline the reset shape elsewhere.
 ### `playersSorted()`
 `Object.entries(state.players).sort((a,b) => a[1].order - b[1].order)`
 Always use — never rely on key insertion order.
+
+### `computeWouldBust(liveTotal, currentScore, finishRule)` → boolean
+Pure function. Returns `false` immediately when `liveTotal === 0`.
+Otherwise: `liveTotal > currentScore` OR (double out AND `currentScore - liveTotal === 1`).
+
+### `computeIsBust(isThrow, liveTotal, currentScore, finishRule, liveDarts, playerKey)` → boolean
+Pure function. Returns `false` if: not throwing player, `liveDarts` is null, player mismatch,
+or `liveDarts.darts` is empty. Delegates to `computeWouldBust` for the numeric check.
+Used by `render-tv.js` for the bust indicator; also covered by `test/bust.test.js`.
 
 ### `calcAvg(p)`
 `(startScore - currentScore) / totalDarts * 3`. Returns `'—'` if no darts.
@@ -237,7 +252,7 @@ Calls `_renderPlayerList()`, `_syncScoreButtons()`, `_syncRuleButtons()`.
 | Export | Called by | Purpose |
 |--------|-----------|---------|
 | `showGameScreen()` | `setup.js` | Switches to game screen, initialises UI |
-| `syncScoreView()` | `main.js` | Syncs screen state from storage on change |
+| `syncScoreView()` | `main.js` | Syncs screen state from storage on change; re-applies `_updateDartPreview()` if darts are in progress to prevent storage events from resetting the live score |
 | `resetGame()` | `setup.js` | Clears `advancing`, `commitHistory`, calls `resetDartUI()` |
 
 ### Local UI state
@@ -331,11 +346,17 @@ Full rebuild. Three-column flex per row:
 - `.sr-col-score`: remaining score — right
 
 ### `updateCurrentPlayerHeader()`
-Updates `#gs-name` (coloured), `#gs-score`, `#player-color-bar` background.
+Updates `#gs-name` (coloured), `#gs-score`, `#gs-pre-score`, `#player-color-bar` background.
+- `#gs-pre-score` — committed score at turn start; frozen during the visit (muted colour)
+- `#gs-score` — live remaining score; counts down per dart
 
 ### `renderScoreStripLive(dartsThisVisit, wouldBust)`
 Patches DOM directly — no full rebuild. Receives `dartsThisVisit` array as argument.
-Updates score strip active row and TV leaderboard throwing row (same-tab only).
+Updates:
+- `#gs-score` in the current-player header (live countdown)
+- Score strip active row score and dart chips
+- TV leaderboard throwing row: score, dart chips, `bust` class (same-tab only)
+
 Cross-tab/device TV updates come via `liveDarts` storage field.
 
 ---
@@ -376,6 +397,11 @@ Three-column layout. For throwing player:
 - Uses `state.liveDarts` if `player` matches → live dart chips + `.tv-dart-fresh` class
 - `.tv-dart-fresh` → accent colour + `dartPop` scale animation
 - Live score from `liveDarts.darts` sum, frozen on bust
+- **Bust indicator:** `isBust = isThrow && wouldBust && liveDarts?.player === key && liveDarts.darts.length > 0`
+  - Row gets `.bust` class → red border + dark red background
+  - Score element shows `BUST!` in red instead of the numeric score
+- **Border widths:** all rows `border-left-width: 14px`; throwing row `border-left-width: 21px` (colour from inline style, width from CSS class)
+- **Vertical alignment:** leaderboard uses `justify-content: center` — rows float in the vertical middle
 
 ### `_renderBurndown()`
 Chart.js line chart. Reads `rounds[rk][key]` as `{ darts, bust }`, sums dart values.
@@ -392,7 +418,7 @@ Created once on first call, updated with `.update()` on subsequent renders.
 | Undo (⌫ empty) | Restore state + darts, enter review mode | Full re-render |
 | ⌫ in review | Remove dart, exit review, restore modifier | Live chip update |
 | ✓ Confirm Visit | Exit review, commit immediately | Full re-render |
-| Win | Commit, resetDartUI | Show winner overlay |
+| Win | Commit, resetDartUI, liveDarts cleared | Show winner overlay |
 | New game | Same as Start Game | Same as Start Game |
 
 ---
@@ -404,6 +430,8 @@ Created once on first call, updated with `.update()` on subsequent renders.
 - **Review mode is score-view only**: TV never enters review mode.
 - **Same-tab sync**: `storage` event doesn't fire in writing tab — `darts-changed` CustomEvent covers same-tab.
 - **Google Fonts and Chart.js require network**: loaded via CDN. The built `dist/index.html` works on `file://` but fonts and chart will not render without an internet connection.
+- **`patch(null)` deletes keys, not sets them**: `Object.assign` skips absent keys — `onStateChange` has an explicit guard for `liveDarts` to handle this. Any future nullable fields added to state need the same treatment.
+- **`advancing` flag gates same-tab `_updateDartPreview`**: `syncScoreView` skips `_updateDartPreview()` when `advancing === true` to prevent stale `dartsThisVisit` from being compared against a newly committed score.
 
 ---
 
@@ -411,7 +439,7 @@ Created once on first call, updated with `.update()` on subsequent renders.
 
 | Feature | Where to add |
 |---------|-------------|
-| Checkout suggestions | New `checkouts.js` lookup; read in `_updateDartPreview()` + `_renderLeaderboard()` based on remaining score and darts left |
+| Checkout suggestions | `checkouts.js` (lookup table drafted in `checkout-suggestions.md`); render in `_updateDartPreview()` + `_renderLeaderboard()` using remaining score and `dartsLeft = 3 - dartsThisVisit.length` |
 | Double-out per-dart validation | `enterDart()` win check — verify last dart display starts with `D` |
 | Sound effects | `commitVisit()`, `_showWinner()`, `enterReviewMode()` |
 | Stats screen | `?view=stats`, reads `state.rounds` via `lastDarts()` |
