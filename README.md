@@ -19,6 +19,7 @@ One phone scores, one laptop/TV displays the live burndown chart.
 - **Pre-visit score** shown greyed-out next to the live score on the phone — frozen at turn start
 - Last 3 individual dart scores shown per player in both views with live updates
 - **Bust indicator on TV** — throwing player's row turns red and shows BUST! during the bust delay
+- **Continue for placement** — after the first player wins, tap "Continue playing" to keep going; finished players are skipped silently and shown with a placement medal (🥇🥈🥉) on the TV; the last remaining player is automatically assigned last place
 
 ---
 
@@ -197,7 +198,8 @@ From review mode:
 | **Now Throwing** | Player name in their chosen colour. |
 | **Round / Finish Rule** | Round number + Single/Double Out badge. |
 | **Waiting overlay** | Shown when no game active. Returns on End Game. |
-| **Winner overlay** | Shown on win, cleared on new game. |
+| **Winner overlay** | Shown when the first player finishes. "Continue playing" dismisses it and keeps the game going for remaining players. |
+| **Placement medals** | Finished players show 🥇🥈🥉 and "DONE" in the standings sidebar. The last remaining player is automatically placed last. |
 
 Read-only — never writes to storage.
 

@@ -126,8 +126,10 @@ state {
 
   currentPlayer: string
   currentRound:  number
-  gameOver:      boolean
-  winner:        string | null
+  gameOver:      boolean   // true only when all-but-one players have finished
+  placements: {            // finish positions — set as players reach zero
+    [playerKey: string]: number   // 1 = 1st place, 2 = 2nd, etc.
+  }
 
   liveDarts: {             // written on every dart entry, null between turns
     player: string
@@ -142,6 +144,14 @@ not totals. `_renderBurndown` handles legacy number format via typeof guard.
 **liveDarts:** fire-and-forget field written to storage on every `enterDart()`. TV listener
 reacts immediately to update chips and score without waiting for visit commit.
 Cleared to `null` on `_advancePlayer()`.
+
+**placements:** populated as players reach zero. First place is derived as
+`Object.keys(placements).find(k => placements[k] === 1)`. The last remaining unfinished player
+is auto-assigned last place atomically when all others have finished.
+`gameOver: true` is set at that point — not on first win.
+
+**winner field removed:** previously `state.winner` held the first-place key. Now derived
+from `placements`. Any code reading `state.winner` will find `undefined`.
 
 ---
 
@@ -273,7 +283,7 @@ Guards: `dartsThisVisit.length >= 3 || isBust || advancing`.
 After pushing dart:
 1. `_updateDartPreview()` — slots + live score
 2. `patch({ liveDarts })` fire-and-forget — TV updates in ~100ms
-3. Win check → `setTimeout(commitVisit(false), 900)`
+3. Win check → `setTimeout(commitVisit(false), 900)` — records placement, may continue game
 4. Bust check → banner + `setTimeout(commitVisit(true), 1500)`
 5. 3rd dart → `setTimeout(commitVisit(false), 900)`
 
@@ -288,13 +298,21 @@ Calls `renderScoreStripLive(dartsThisVisit, wouldBust)` — passes array as argu
 1. Push `{ state: deepClone, darts: [...dartsThisVisit] }` to `commitHistory`
 2. Build `roundEntry = { darts: [...], bust }` — individual dart objects
 3. Patch score, dart count, round entry
-4. Win: patch `gameOver`+`winner`, `resetDartUI()`
-5. Otherwise: `patch()` → `_advancePlayer()`
+4. Win (`newScore === 0`):
+   - Compute `position = Object.keys(state.placements).length + 1`
+   - Patch `placements/${cpKey}: position`
+   - Count remaining unfinished players (not in `placements`, not current)
+   - If 1 remains: auto-assign last place, patch `gameOver: true`, `resetDartUI()`, return
+   - If 0 remain: patch `gameOver: true`, `resetDartUI()`, return
+   - If 2+ remain: fall through to `_advancePlayer()` — game continues
+5. Normal: `patch()` → `_advancePlayer()`
 6. `finally`: `advancing = false`, `renderScoreStrip()`, `updateCurrentPlayerHeader()`
 
 ### `_advancePlayer()`
 
-Patches `currentPlayer`, `currentRound`, `liveDarts: null`, new round key if wrapping.
+Steps forward through the rotation, **skipping players already in `state.placements`**.
+Round counter increments when the loop crosses the wrap-around boundary (higher index → lower).
+Patches `currentPlayer`, `currentRound`, `liveDarts: null`, new round key if round incremented.
 Calls `resetDartUI()`.
 
 ---
@@ -378,9 +396,13 @@ if !hasPlayers → return
 _updateHeader()
 _renderLeaderboard()
 if _lastRoundsKey changed → _renderBurndown(); update _lastRoundsKey
-if gameOver && winner → _showWinner()
+winnerKey = first key in state.placements with value 1
+if winnerKey && !_overlayDismissed → _showWinner(winnerKey)
 else → hide #winner-overlay
 ```
+
+`_overlayDismissed` is a module-level flag set when "Continue playing" is tapped.
+Reset in `resetChart()` so a new game shows the overlay fresh.
 
 ### Chart update guard
 `_lastRoundsKey = JSON.stringify(state.rounds)` compared on every render.
@@ -401,6 +423,11 @@ Three-column layout. For throwing player:
   - Score element shows `BUST!` in red instead of the numeric score
 - **Border widths:** all rows `border-left-width: 14px`; throwing row `border-left-width: 21px` (colour from inline style, width from CSS class)
 - **Vertical alignment:** leaderboard uses `justify-content: center` — rows float in the vertical middle
+
+For **finished players** (key present in `state.placements`):
+- Position label replaced with placement medal: 🥇 / 🥈 / 🥉 / number for 4th+
+- `.top` gold style applied to placement 1 (actual winner), not row index 0
+- Score column shows **DONE** in muted colour — no live score, no bust indicator
 
 ### `_renderBurndown()`
 Chart.js line chart. Reads `rounds[rk][key]` as `{ darts, bust }`, sums dart values.
@@ -431,6 +458,8 @@ Created once on first call, updated with `.update()` on subsequent renders.
 - **Google Fonts and Chart.js require network**: loaded via CDN. The built `dist/index.html` works on `file://` but fonts and chart will not render without an internet connection.
 - **`patch(null)` deletes keys, not sets them**: `Object.assign` skips absent keys — `onStateChange` has an explicit guard for `liveDarts` to handle this. Any future nullable fields added to state need the same treatment.
 - **`advancing` flag is game-logic only**: gates input and async commit sequencing. It does not appear in any render function — `syncScoreView` derives the live header score from `state.liveDarts` instead.
+- **`state.winner` removed**: first-place key is now derived from `state.placements`. Do not re-introduce `winner` — read `placements` instead.
+- **`_overlayDismissed` edge case**: if a player undoes their winning dart after the overlay was dismissed, the overlay will not re-appear when they finish again. Placements are correctly reversed by undo; only the overlay suppression persists until a new game.
 
 ---
 

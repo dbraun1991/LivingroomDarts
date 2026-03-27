@@ -9,6 +9,44 @@ Development was iterative — each entry reflects a discrete change or fix.
 
 ---
 
+## Feature — Continue playing for placement
+
+After the first player wins, the game no longer ends immediately. Players continue throwing
+for 2nd, 3rd place and so on.
+
+### Behaviour
+
+- **Winner overlay** appears as before when a player reaches zero
+- Button text changed from "Continue watching" → **"Continue playing"**
+- Dismissing the overlay resumes the game — finished players are silently skipped in the rotation
+- Subsequent finishes are recorded quietly — no overlay re-shown
+- The last remaining player is **automatically assigned last place** the moment everyone else
+  has finished — they do not need to reach zero
+- **Undo** of a finishing dart reverses the placement and returns the player to the rotation
+
+### TV leaderboard
+
+- Finished players show a **placement medal** (🥇🥈🥉) instead of their row position number
+- Score column replaced with **DONE** in muted colour
+- The 🥇 position label is highlighted gold (`.top` style) for the actual 1st-place finisher,
+  regardless of throw order
+
+### State changes
+
+| Field | Before | After |
+|-------|--------|-------|
+| `state.winner` | string key of winner | **removed** |
+| `state.placements` | — | `{ [playerKey]: number }` — finish position per player |
+| `state.gameOver` | true on first win | true only when all-but-one players have finished |
+
+### Known edge case
+
+If a player undoes their winning dart after the winner overlay was already dismissed,
+the overlay will not re-appear when they finish again in the same session. The leaderboard
+placement is still correctly updated.
+
+---
+
 ## Refactor — Phone/TV render decoupling
 
 ### Problem
