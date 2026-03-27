@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────────────────────
 
 import { state, playersSorted, computeWouldBust } from './state.js';
+import { getCheckout } from './checkouts.js';
 import { writeAll, patch }                   from './storage.js';
 import { renderScoreStrip,
          renderScoreStripLive,
@@ -88,6 +89,8 @@ function resetDartUI() {
   exitReviewMode();
   _clearModBtns();
   document.getElementById('bust-banner').classList.add('hidden');
+  document.getElementById('checkout-hint').textContent = '';
+  document.getElementById('checkout-hint-wrap').classList.remove('visible');
   _updateDartPreview();
 }
 
@@ -116,6 +119,19 @@ function _updateDartPreview() {
 
   document.getElementById('gs-score').textContent = live;
   renderScoreStripLive(dartsThisVisit, wouldBust);
+
+  // Checkout suggestion
+  const dartsLeft = 3 - dartsThisVisit.length;
+  const hint      = wouldBust ? null : getCheckout(live, dartsLeft, state.settings?.finishRule);
+  const wrapEl    = document.getElementById('checkout-hint-wrap');
+  const hintEl    = document.getElementById('checkout-hint');
+  if (hint) {
+    hintEl.textContent = hint.join(' · ');
+    wrapEl.classList.add('visible');
+  } else {
+    hintEl.textContent = '';
+    wrapEl.classList.remove('visible');
+  }
 }
 
 // ── Core dart logic ───────────────────────────────────────

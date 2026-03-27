@@ -5,6 +5,7 @@
 
 import { state, playersSorted, calcAvg, lastDarts, computeWouldBust, computeIsBust } from './state.js';
 import { PALETTE } from './colors.js';
+import { getCheckout } from './checkouts.js';
 
 // ── Module-level singletons ───────────────────────────────
 
@@ -73,9 +74,15 @@ function _updateHeader() {
 }
 
 function _renderLeaderboard() {
-  const list      = document.getElementById('tv-lb-list');
-  const liveDarts = state.liveDarts || null;
-  list.innerHTML  = '';
+  const list           = document.getElementById('tv-lb-list');
+  const checkoutWrap   = document.getElementById('tv-checkout-wrap');
+  const checkoutTextEl = document.getElementById('tv-checkout-text');
+  const liveDarts      = state.liveDarts || null;
+  list.innerHTML = '';
+
+  // Reset checkout panel — populated below if a checkout exists
+  checkoutWrap.classList.add('hidden');
+  checkoutTextEl.textContent = '';
 
   const placements = state.placements || {};
 
@@ -115,6 +122,16 @@ function _renderLeaderboard() {
     // Finished players show DONE instead of their score
     const scoreText  = placement ? 'DONE' : (isBust ? 'BUST!' : displayScore);
     const scoreColor = placement ? 'var(--muted)' : (isBust ? 'var(--red)' : color);
+
+    // Checkout panel — only for the active throwing player, not on bust or finished
+    if (isThrow && !isBust && !placement) {
+      const dartsLeft = 3 - (liveDarts?.player === key ? (liveDarts.darts?.length ?? 0) : 0);
+      const checkout  = getCheckout(displayScore, dartsLeft, state.settings?.finishRule);
+      if (checkout) {
+        checkoutTextEl.textContent = checkout.join(' · ');
+        checkoutWrap.classList.remove('hidden');
+      }
+    }
 
     const row = document.createElement('div');
     row.className     = 'tv-lb-row' + (isThrow ? ' throwing' : '') + (isBust ? ' bust' : '');

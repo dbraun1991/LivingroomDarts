@@ -26,6 +26,23 @@
 .current-score   { font-family: var(--font-head); font-size: 1.8rem; color: var(--text); }
 .pre-visit-score { font-family: var(--font-head); font-size: 1.8rem; color: var(--muted); }
 
+.checkout-hint-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  visibility: hidden;   /* hides both label and hint; keeps layout stable */
+}
+.checkout-hint-wrap.visible { visibility: visible; }
+.checkout-hint {
+  font-family: var(--font-cond);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 1px;
+  text-align: center;
+}
+
 /* ── Dart preview bar ────────────────────────────────── */
 .dart-preview {
   background: var(--surface);
