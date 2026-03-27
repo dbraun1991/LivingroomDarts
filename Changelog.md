@@ -9,6 +9,39 @@ Development was iterative — each entry reflects a discrete change or fix.
 
 ---
 
+## Feature — Checkout suggestions
+
+When the throwing player's remaining score is ≤ 170 and reachable within the darts left
+in the current visit, the optimal checkout route is shown live in both views.
+
+### Behaviour
+
+- **Phone:** dart sequence shown in gold in the centre of the current-player-bar, between the
+  player name and the remaining score. Label "Checkout" above it.
+- **TV:** dart sequence shown in gold below the throwing player's score in the leaderboard.
+- Updates **live** after each dart — `dartsLeft` shrinks and the remaining score changes,
+  so the suggestion adapts (e.g. 3-dart route on dart 1, 2-dart on dart 2, 1-dart on dart 3).
+- Hidden (not just empty) when no checkout exists: impossible scores, score > 170, bust.
+- Rule-aware:
+  - **Double Out** — routes always end on a double or Bull
+  - **Single Out** — prefers 1-dart triples/singles for scores ≤ 60; adds routes for 159, 162, 168
+
+### New module: `checkouts.js`
+
+Pure data module — no DOM, no imports. Exports one function:
+
+```
+getCheckout(score, dartsLeft, finishRule) → string[] | null
+```
+
+Two lookup tables (`DOUBLE_OUT`, `SINGLE_OUT`) encoding the full PDC/BDO standard
+checkout routes. `SINGLE_OUT` extends `DOUBLE_OUT` with overrides.
+
+Tests: `test/checkout.test.js` — 38 tests covering boundary guards, impossible scores,
+dartsLeft filtering, single-out unlocks, and table spot-checks.
+
+---
+
 ## Feature — Continue playing for placement
 
 After the first player wins, the game no longer ends immediately. Players continue throwing

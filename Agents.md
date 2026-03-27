@@ -60,6 +60,7 @@ that need to reason about, modify, or extend this codebase.
 | `src/js/game.js` | Dart entry pipeline, undo, review mode |
 | `src/js/render-score.js` | Phone view DOM renderers |
 | `src/js/render-tv.js` | TV view DOM renderers + Chart.js |
+| `src/js/checkouts.js` | Checkout lookup table + `getCheckout` — pure, no DOM |
 
 ### Build output
 
@@ -75,7 +76,9 @@ that need to reason about, modify, or extend this codebase.
 | vite-plugin-singlefile | Inlines all assets into one HTML file at build time |
 | Vitest | Unit tests — `npm test` — config in `vite.config.js` under `test:` block |
 
-**Test files:** `test/bust.test.js` — 21 tests covering `computeWouldBust`, `computeIsBust`, and `onStateChange` key-deletion behaviour.
+**Test files:**
+- `test/bust.test.js` — 21 tests covering `computeWouldBust`, `computeIsBust`, and `onStateChange` key-deletion behaviour
+- `test/checkout.test.js` — 38 tests covering `getCheckout` boundary guards, impossible scores, dartsLeft filtering, single-out unlocks, and table spot-checks
 
 Two views from the same file, determined by `?view=display` URL parameter.
 
@@ -85,9 +88,10 @@ Two views from the same file, determined by `?view=display` URL parameter.
 state.js          ← no deps
 storage.js        ← no deps
 colors.js         ← no deps
+checkouts.js      ← no deps
 render-score.js   ← state, colors
-render-tv.js      ← state, colors
-game.js           ← state, storage, render-score
+render-tv.js      ← state, colors, checkouts
+game.js           ← state, storage, render-score, checkouts
 setup.js          ← state, storage, colors, game, render-tv
 main.js           ← state, storage, setup, game, render-tv
 ```
@@ -212,7 +216,43 @@ Returns last `count` `.display` strings, left-padded with `'—'`.
 
 ---
 
-## 5. Colour System (`colors.js`)
+## 5. Checkout Suggestions (`checkouts.js`)
+
+Pure data module — no DOM, no imports from other modules. Safe to test in isolation.
+
+### `getCheckout(score, dartsLeft, finishRule)` → `string[] | null`
+
+Returns the standard checkout route for the given remaining score, or `null` if:
+- `score <= 0` or `score > 170`
+- Score is impossible for the rule (e.g. 169 in both rules, 168 in double-out)
+- The stored route requires more darts than `dartsLeft`
+
+**Double-out table (`DOUBLE_OUT`):** full PDC/BDO standard routes, 2–170.
+Score 99 is a 3-dart route (`T19 S10 D16`) — no 2-dart path exists.
+
+**Single-out table (`SINGLE_OUT`):** extends `DOUBLE_OUT` with:
+- Three newly possible scores: `159 → T20 T19 T14`, `162 → T20 T18 T16`, `168 → T20 T20 T16`
+- 1-dart triple finishes for multiples of 3 in range 21–60 (e.g. `21 → T7`)
+- 1-dart single finishes for scores 1–20 (e.g. `20 → S20` instead of `D10`)
+- Outer Bull for 25: `25 → OB` (1 dart, vs `S1 D12` in double-out)
+
+**Usage in phone view (`game.js` → `_updateDartPreview`):**
+```
+dartsLeft = 3 - dartsThisVisit.length
+hint = wouldBust ? null : getCheckout(liveRemaining, dartsLeft, finishRule)
+```
+Rendered in `#checkout-hint` in the centre of the current-player-bar. Hidden on bust or no route.
+
+**Usage in TV view (`render-tv.js` → `_renderLeaderboard`):**
+```
+dartsLeft = 3 - liveDarts.darts.length   (for throwing player only)
+checkout = getCheckout(displayScore, dartsLeft, finishRule)
+```
+Rendered as `.tv-lb-checkout` below the score in the throwing player's score column.
+
+---
+
+## 7. Colour System (`colors.js`)
 
 **PALETTE:** 35 hex values, 6×6 grid (35 swatches + 1 `?` tile).
 - Columns: Red · Orange · Green · Cyan · Blue · Purple
@@ -232,7 +272,7 @@ Decoupled from `setup.js` via callback — `colors.js` has no knowledge of `setu
 
 ---
 
-## 6. Setup Flow (`setup.js`)
+## 8. Setup Flow (`setup.js`)
 
 Local vars (never persisted): `setupPlayers[]`, `selectedStart`, `selectedRule`.
 
@@ -255,7 +295,7 @@ Calls `_renderPlayerList()`, `_syncScoreButtons()`, `_syncRuleButtons()`.
 
 ---
 
-## 7. Dart Entry Pipeline (`game.js`)
+## 9. Dart Entry Pipeline (`game.js`)
 
 ### Public exports
 
@@ -317,7 +357,7 @@ Calls `resetDartUI()`.
 
 ---
 
-## 8. Review Mode (`game.js`)
+## 10. Review Mode (`game.js`)
 
 Activated when `_goToPreviousPlayer()` restores darts with `length > 0`.
 
@@ -353,7 +393,7 @@ Always calls `exitReviewMode()` — review mode cannot persist across advances.
 
 ---
 
-## 9. Score View Renderers (`render-score.js`)
+## 11. Score View Renderers (`render-score.js`)
 
 Passive — reads `state`, writes DOM only. Never writes storage.
 
@@ -378,7 +418,7 @@ TV updates (same-tab and cross-tab) come via `renderDisplayView()` called from `
 
 ---
 
-## 10. TV Display Renderers (`render-tv.js`)
+## 12. TV Display Renderers (`render-tv.js`)
 
 Passive — reads `state`, writes DOM only. Never writes storage.
 
@@ -435,7 +475,7 @@ Created once on first call, updated with `.update()` on subsequent renders.
 
 ---
 
-## 11. Reset Behaviour Summary
+## 13. Reset Behaviour Summary
 
 | Trigger | Score view | TV view |
 |---------|-----------|---------|
@@ -449,7 +489,7 @@ Created once on first call, updated with `.update()` on subsequent renders.
 
 ---
 
-## 12. Known Constraints
+## 14. Known Constraints
 
 - **liveDarts errors silently ignored** (`.catch(() => {})`). TV falls back to last committed darts.
 - **Undo history is session-only**: page reload clears `commitHistory`.
@@ -463,11 +503,11 @@ Created once on first call, updated with `.update()` on subsequent renders.
 
 ---
 
-## 13. Extension Points
+## 15. Extension Points
 
 | Feature | Where to add |
 |---------|-------------|
-| Checkout suggestions | `checkouts.js` (lookup table drafted in `checkout-suggestions.md`); render in `_updateDartPreview()` + `_renderLeaderboard()` using remaining score and `dartsLeft = 3 - dartsThisVisit.length` |
+| Checkout suggestions | Implemented — `checkouts.js` + wired in `_updateDartPreview()` and `_renderLeaderboard()` |
 | Double-out per-dart validation | `enterDart()` win check — verify last dart display starts with `D` |
 | Sound effects | `commitVisit()`, `_showWinner()`, `enterReviewMode()` |
 | Stats screen | `?view=stats`, reads `state.rounds` via `lastDarts()` |

@@ -20,6 +20,7 @@ One phone scores, one laptop/TV displays the live burndown chart.
 - Last 3 individual dart scores shown per player in both views with live updates
 - **Bust indicator on TV** — throwing player's row turns red and shows BUST! during the bust delay
 - **Continue for placement** — after the first player wins, tap "Continue playing" to keep going; finished players are skipped silently and shown with a placement medal (🥇🥈🥉) on the TV; the last remaining player is automatically assigned last place
+- **Checkout suggestions** — when the remaining score is ≤ 170 and finishable within the darts left, the optimal dart sequence is shown live on the phone (centre of the player bar) and on the TV (below the throwing player's score); adapts dart-by-dart as the visit progresses; rule-aware (Single Out prefers 1-dart triples/singles, Double Out always ends on a double)
 
 ---
 
@@ -200,6 +201,7 @@ From review mode:
 | **Waiting overlay** | Shown when no game active. Returns on End Game. |
 | **Winner overlay** | Shown when the first player finishes. "Continue playing" dismisses it and keeps the game going for remaining players. |
 | **Placement medals** | Finished players show 🥇🥈🥉 and "DONE" in the standings sidebar. The last remaining player is automatically placed last. |
+| **Checkout hint** | Gold dart sequence shown below the throwing player's score, updating live per dart. Empty for impossible scores and during a bust. |
 
 Read-only — never writes to storage.
 

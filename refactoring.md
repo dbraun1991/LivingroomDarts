@@ -1,5 +1,7 @@
 # Refactoring Plan — Phone/TV Render Decoupling
 
+> **Status: Complete.** All 5 chunks implemented. See Changelog.md for the full record.
+
 ## Problem Statement
 
 Same-tab live updates (per-dart score and dart chips on the TV leaderboard) were implemented
