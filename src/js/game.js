@@ -45,6 +45,7 @@ export function syncScoreView() {
   document.getElementById('game-screen').style.display  = 'flex';
   renderScoreStrip();
   updateCurrentPlayerHeader();
+  if (dartsThisVisit.length > 0 && !advancing) _updateDartPreview();
 }
 
 /** Reset all local dart/game UI state — called by setup.js on end game */
@@ -195,6 +196,7 @@ async function commitVisit(bust) {
     [`darts/players/${cpKey}/currentScore`]: newScore,
     [`darts/players/${cpKey}/totalDarts`]:   newDarts,
     [`darts/rounds/${roundKey}/${cpKey}`]:   roundEntry,
+    'darts/liveDarts':                       null,
   };
 
   try {

@@ -3,6 +3,10 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 
 export default defineConfig({
   root: 'src',
+  test: {
+    root: '.',
+    include: ['test/**/*.test.js'],
+  },
   plugins: [
     viteSingleFile(),   // inlines all JS and CSS into a single index.html
   ],

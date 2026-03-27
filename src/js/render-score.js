@@ -19,6 +19,7 @@ export function updateCurrentPlayerHeader() {
   nameEl.style.color = color;
 
   document.getElementById('gs-score').textContent             = cp.currentScore;
+  document.getElementById('gs-pre-score').textContent         = cp.currentScore;
   document.getElementById('player-color-bar').style.background = color;
 }
 
@@ -75,6 +76,10 @@ export function renderScoreStripLive(dartsThisVisit, wouldBust) {
   const live       = wouldBust ? cp.currentScore : Math.max(0, cp.currentScore - visitTotal);
   const pads       = [0, 1, 2].map(i => dartsThisVisit[i]?.display ?? '—');
 
+  // ── Current player header ──
+  const headerScore = document.getElementById('gs-score');
+  if (headerScore) headerScore.textContent = wouldBust ? cp.currentScore : live;
+
   // ── Score strip ──
   const activeRow = document.querySelector('#score-strip .score-row.active-player');
   if (activeRow) {
@@ -90,8 +95,13 @@ export function renderScoreStripLive(dartsThisVisit, wouldBust) {
   // ── TV leaderboard (same tab only) ──
   const throwRow = document.querySelector('#tv-lb-list .tv-lb-row.throwing');
   if (throwRow) {
+    throwRow.classList.toggle('bust', wouldBust);
+
     const scoreEl = throwRow.querySelector('.tv-lb-score');
-    if (scoreEl) scoreEl.textContent = live;
+    if (scoreEl) {
+      scoreEl.textContent  = wouldBust ? 'BUST!' : live;
+      scoreEl.style.color  = wouldBust ? 'var(--red)' : '';
+    }
 
     throwRow.querySelectorAll('.tv-lb-dart').forEach((el, i) => {
       el.textContent = pads[i];

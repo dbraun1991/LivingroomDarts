@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s https://www.dartconnect.com/checkout-chart)",
+      "Bash(curl -s https://www.mastercaller.com/checkouts.php)",
+      "WebSearch",
+      "WebFetch(domain:darts501.com)",
+      "WebFetch(domain:news.williamhill.com)",
+      "WebFetch(domain:darts-oche.com)",
+      "WebFetch(domain:dartcounterapp.com)",
+      "WebFetch(domain:maximumtarget.com)",
+      "Bash(npm test:*)"
+    ]
+  }
+}

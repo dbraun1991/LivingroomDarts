@@ -3,7 +3,7 @@
 // Passive: reads state, writes DOM only. Never writes storage.
 // ─────────────────────────────────────────────────────────
 
-import { state, playersSorted, calcAvg, lastDarts } from './state.js';
+import { state, playersSorted, calcAvg, lastDarts, computeWouldBust, computeIsBust } from './state.js';
 import { PALETTE } from './colors.js';
 
 // ── Module-level singletons ───────────────────────────────
@@ -87,16 +87,17 @@ function _renderLeaderboard() {
     const liveTotal    = (isThrow && liveDarts?.player === key)
       ? (liveDarts.darts || []).reduce((s, d) => s + d.value, 0)
       : 0;
-    const isDoubleOut  = state.settings?.finishRule === 'double';
-    const wouldBust    = liveTotal > p.currentScore
-      || (isDoubleOut && p.currentScore - liveTotal === 1);
+    const finishRule   = state.settings?.finishRule;
+    const wouldBust    = computeWouldBust(liveTotal, p.currentScore, finishRule);
     const displayScore = (isThrow && liveTotal > 0 && !wouldBust)
       ? Math.max(0, p.currentScore - liveTotal)
       : p.currentScore;
 
+    const isBust = computeIsBust(isThrow, liveTotal, p.currentScore, finishRule, liveDarts, key);
+
     const row = document.createElement('div');
-    row.className  = 'tv-lb-row' + (isThrow ? ' throwing' : '');
-    row.style.cssText = `border-left: 4px solid ${color};`;
+    row.className  = 'tv-lb-row' + (isThrow ? ' throwing' : '') + (isBust ? ' bust' : '');
+    row.style.cssText = `border-left-color: ${color};`;
     row.innerHTML = `
       <div class="tv-lb-col-name">
         <span class="tv-lb-pos ${i === 0 ? 'top' : ''}">${i + 1}</span>
@@ -109,7 +110,7 @@ function _renderLeaderboard() {
         <span class="tv-lb-avg-inline">⌀ ${avg}</span>
       </div>
       <div class="tv-lb-col-score">
-        <span class="tv-lb-score" style="color:${color}">${displayScore}</span>
+        <span class="tv-lb-score" style="color:${isBust ? 'var(--red)' : color}">${isBust ? 'BUST!' : displayScore}</span>
       </div>
     `;
     list.appendChild(row);
