@@ -205,10 +205,26 @@ async function commitVisit(bust) {
 
   try {
     if (newScore === 0) {
-      updates['darts/gameOver'] = true;
-      updates['darts/winner']   = cpKey;
+      const position   = Object.keys(state.placements || {}).length + 1;
+      const allKeys    = playersSorted().map(([k]) => k);
+      const unfinished = allKeys.filter(k => k !== cpKey && !(state.placements?.[k]));
+
+      updates[`darts/placements/${cpKey}`] = position;
+
+      if (unfinished.length <= 1) {
+        // Auto-assign last place to the sole remaining player (if any)
+        if (unfinished.length === 1) {
+          updates[`darts/placements/${unfinished[0]}`] = position + 1;
+        }
+        updates['darts/gameOver'] = true;
+        await patch(updates);
+        resetDartUI();
+        return;
+      }
+
+      // More than 1 unfinished — game continues
       await patch(updates);
-      resetDartUI();
+      await _advancePlayer();
       return;
     }
     await patch(updates);
@@ -224,18 +240,24 @@ async function commitVisit(bust) {
 }
 
 async function _advancePlayer() {
-  const keys     = playersSorted().map(([k]) => k);
-  const idx      = keys.indexOf(state.currentPlayer);
-  const nextIdx  = (idx + 1) % keys.length;
-  const nextKey  = keys[nextIdx];
-  const newRound = nextIdx === 0 ? state.currentRound + 1 : state.currentRound;
+  const keys   = playersSorted().map(([k]) => k);
+  const placed = state.placements || {};
+  let   i      = keys.indexOf(state.currentPlayer);
+  let   newRound = state.currentRound;
 
+  do {
+    const prev = i;
+    i = (i + 1) % keys.length;
+    if (i < prev) newRound++;   // crossed the wrap-around boundary
+  } while (placed[keys[i]]);
+
+  const nextKey = keys[i];
   const updates = {
     'darts/currentPlayer': nextKey,
     'darts/currentRound':  newRound,
     'darts/liveDarts':     null,
   };
-  if (nextIdx === 0) updates[`darts/rounds/r${newRound}`] = {};
+  if (newRound > state.currentRound) updates[`darts/rounds/r${newRound}`] = {};
 
   await patch(updates);
   resetDartUI();
@@ -247,11 +269,17 @@ function _advanceLocalOnly() {
     state: JSON.parse(JSON.stringify(state)),
     darts: [...dartsThisVisit],
   });
-  const keys    = playersSorted().map(([k]) => k);
-  const idx     = keys.indexOf(state.currentPlayer);
-  const nextIdx = (idx + 1) % keys.length;
-  state.currentPlayer = keys[nextIdx];
-  if (nextIdx === 0) state.currentRound += 1;
+  const keys   = playersSorted().map(([k]) => k);
+  const placed = state.placements || {};
+  let   i      = keys.indexOf(state.currentPlayer);
+
+  do {
+    const prev = i;
+    i = (i + 1) % keys.length;
+    if (i < prev) state.currentRound++;
+  } while (placed[keys[i]]);
+
+  state.currentPlayer = keys[i];
   updateCurrentPlayerHeader();
   renderScoreStrip();
   resetDartUI();

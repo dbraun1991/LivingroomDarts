@@ -8,8 +8,9 @@ import { PALETTE } from './colors.js';
 
 // ── Module-level singletons ───────────────────────────────
 
-let _burnChart     = null;   // Chart.js instance, created once
-let _lastRoundsKey = null;   // fingerprint — skips redraw if rounds unchanged
+let _burnChart        = null;   // Chart.js instance, created once
+let _lastRoundsKey    = null;   // fingerprint — skips redraw if rounds unchanged
+let _overlayDismissed = false;  // true after "Continue playing" is tapped
 
 /** Reset chart state between games (called by setup.js on start/end game) */
 export function resetChart() {
@@ -17,8 +18,15 @@ export function resetChart() {
     _burnChart.destroy();
     _burnChart = null;
   }
-  _lastRoundsKey = null;
+  _lastRoundsKey    = null;
+  _overlayDismissed = false;
 }
+
+// Dismiss the winner overlay and suppress it for the rest of this game
+document.getElementById('winner-close-btn').addEventListener('click', () => {
+  _overlayDismissed = true;
+  document.getElementById('winner-overlay').classList.add('hidden');
+});
 
 // ── Entry point ───────────────────────────────────────────
 
@@ -40,8 +48,10 @@ export function renderDisplayView() {
     _renderBurndown();
   }
 
-  if (state.gameOver && state.winner) {
-    _showWinner();
+  const placements  = state.placements || {};
+  const winnerKey   = Object.keys(placements).find(k => placements[k] === 1);
+  if (winnerKey && !_overlayDismissed) {
+    _showWinner(winnerKey);
   } else {
     document.getElementById('winner-overlay').classList.add('hidden');
   }
@@ -67,10 +77,13 @@ function _renderLeaderboard() {
   const liveDarts = state.liveDarts || null;
   list.innerHTML  = '';
 
+  const placements = state.placements || {};
+
   playersSorted().forEach(([key, p], i) => {
-    const color   = p.color || PALETTE[p.order % PALETTE.length];
-    const isThrow = key === state.currentPlayer;
-    const avg     = calcAvg(p);
+    const color     = p.color || PALETTE[p.order % PALETTE.length];
+    const isThrow   = key === state.currentPlayer;
+    const placement = placements[key] ?? null;   // finish position, or null if still playing
+    const avg       = calcAvg(p);
 
     // Active player: show live darts if available, else last committed
     let dartDisplay;
@@ -95,12 +108,20 @@ function _renderLeaderboard() {
 
     const isBust = computeIsBust(isThrow, liveTotal, p.currentScore, finishRule, liveDarts, key);
 
+    // Placement badge replaces the row position number for finished players
+    const posLabel  = placement ? _placementBadge(placement) : String(i + 1);
+    const isTop     = placement === 1;
+
+    // Finished players show DONE instead of their score
+    const scoreText  = placement ? 'DONE' : (isBust ? 'BUST!' : displayScore);
+    const scoreColor = placement ? 'var(--muted)' : (isBust ? 'var(--red)' : color);
+
     const row = document.createElement('div');
-    row.className  = 'tv-lb-row' + (isThrow ? ' throwing' : '') + (isBust ? ' bust' : '');
+    row.className     = 'tv-lb-row' + (isThrow ? ' throwing' : '') + (isBust ? ' bust' : '');
     row.style.cssText = `border-left-color: ${color};`;
     row.innerHTML = `
       <div class="tv-lb-col-name">
-        <span class="tv-lb-pos ${i === 0 ? 'top' : ''}">${i + 1}</span>
+        <span class="tv-lb-pos ${isTop ? 'top' : ''}">${posLabel}</span>
         <span class="tv-lb-name" style="color:${isThrow ? color : ''}">${p.name}</span>
       </div>
       <div class="tv-lb-col-darts">
@@ -110,7 +131,7 @@ function _renderLeaderboard() {
         <span class="tv-lb-avg-inline">⌀ ${avg}</span>
       </div>
       <div class="tv-lb-col-score">
-        <span class="tv-lb-score" style="color:${isBust ? 'var(--red)' : color}">${isBust ? 'BUST!' : displayScore}</span>
+        <span class="tv-lb-score" style="color:${scoreColor}">${scoreText}</span>
       </div>
     `;
     list.appendChild(row);
@@ -193,8 +214,12 @@ function _renderBurndown() {
   }
 }
 
-function _showWinner() {
-  const w = state.players?.[state.winner];
+function _placementBadge(pos) {
+  return ['🥇', '🥈', '🥉'][pos - 1] ?? String(pos);
+}
+
+function _showWinner(winnerKey) {
+  const w = state.players?.[winnerKey];
   if (!w) return;
   const color  = w.color || PALETTE[w.order % PALETTE.length];
   const nameEl = document.getElementById('winner-name-txt');

@@ -12,7 +12,7 @@ export const state = {
   currentPlayer: null,
   currentRound:  0,
   gameOver:      false,
-  winner:        null,
+  placements:    {},
   liveDarts:     null,
 };
 
@@ -33,7 +33,7 @@ export function createResetState(startScore, finishRule) {
     currentPlayer: null,
     currentRound:  0,
     gameOver:      false,
-    winner:        null,
+    placements:    {},
     liveDarts:     null,
   };
 }
