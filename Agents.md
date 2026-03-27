@@ -52,7 +52,7 @@ that need to reason about, modify, or extend this codebase.
 | `src/css/setup.css` | Setup screen styles |
 | `src/css/game.css` | Phone/score view styles |
 | `src/css/tv.css` | TV display styles |
-| `src/js/main.js` | Entry point — routing, boot, wires onStateChange |
+| `src/js/main.js` | Entry point — routing, boot, wires onStateChange; calls both renderers on every state change |
 | `src/js/state.js` | Shared state object, pure helpers |
 | `src/js/storage.js` | localStorage abstraction |
 | `src/js/colors.js` | PALETTE constant, colour picker popup |
@@ -252,7 +252,7 @@ Calls `_renderPlayerList()`, `_syncScoreButtons()`, `_syncRuleButtons()`.
 | Export | Called by | Purpose |
 |--------|-----------|---------|
 | `showGameScreen()` | `setup.js` | Switches to game screen, initialises UI |
-| `syncScoreView()` | `main.js` | Syncs screen state from storage on change; re-applies `_updateDartPreview()` if darts are in progress to prevent storage events from resetting the live score |
+| `syncScoreView()` | `main.js` | Syncs screen state from storage on change; patches `#gs-score` live from `state.liveDarts` when a visit is in progress |
 | `resetGame()` | `setup.js` | Clears `advancing`, `commitHistory`, calls `resetDartUI()` |
 
 ### Local UI state
@@ -351,13 +351,12 @@ Updates `#gs-name` (coloured), `#gs-score`, `#gs-pre-score`, `#player-color-bar`
 - `#gs-score` — live remaining score; counts down per dart
 
 ### `renderScoreStripLive(dartsThisVisit, wouldBust)`
-Patches DOM directly — no full rebuild. Receives `dartsThisVisit` array as argument.
+Patches phone DOM directly — no full rebuild. Receives `dartsThisVisit` array as argument.
 Updates:
 - `#gs-score` in the current-player header (live countdown)
 - Score strip active row score and dart chips
-- TV leaderboard throwing row: score, dart chips, `bust` class (same-tab only)
 
-Cross-tab/device TV updates come via `liveDarts` storage field.
+TV updates (same-tab and cross-tab) come via `renderDisplayView()` called from `main.js`.
 
 ---
 
@@ -431,7 +430,7 @@ Created once on first call, updated with `.update()` on subsequent renders.
 - **Same-tab sync**: `storage` event doesn't fire in writing tab — `darts-changed` CustomEvent covers same-tab.
 - **Google Fonts and Chart.js require network**: loaded via CDN. The built `dist/index.html` works on `file://` but fonts and chart will not render without an internet connection.
 - **`patch(null)` deletes keys, not sets them**: `Object.assign` skips absent keys — `onStateChange` has an explicit guard for `liveDarts` to handle this. Any future nullable fields added to state need the same treatment.
-- **`advancing` flag gates same-tab `_updateDartPreview`**: `syncScoreView` skips `_updateDartPreview()` when `advancing === true` to prevent stale `dartsThisVisit` from being compared against a newly committed score.
+- **`advancing` flag is game-logic only**: gates input and async commit sequencing. It does not appear in any render function — `syncScoreView` derives the live header score from `state.liveDarts` instead.
 
 ---
 

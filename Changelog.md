@@ -9,6 +9,38 @@ Development was iterative — each entry reflects a discrete change or fix.
 
 ---
 
+## Refactor — Phone/TV render decoupling
+
+### Problem
+`render-score.js` directly patched TV DOM elements (same-tab fast-path), creating two independent
+TV update paths, leaking TV class names into the phone renderer, and causing the `tv-dart-fresh`
+pop animation to never fire same-tab.
+
+### Changes
+
+| File | Change |
+|------|--------|
+| `main.js` | `handleStateChange` always calls `renderDisplayView()` alongside `syncScoreView()` |
+| `render-score.js` | Removed "TV leaderboard (same tab only)" block — phone-only now |
+| `game.js` | `syncScoreView` replaced `_updateDartPreview()` + `!advancing` guard with `state.liveDarts`-based live header patch; both inline bust expressions replaced with `computeWouldBust` |
+
+### Eliminated
+
+| Problem | Eliminated by |
+|---------|---------------|
+| TV DOM manipulation in `render-score.js` | Removed TV block |
+| `advancing` guard in render path | Replaced with `state.liveDarts` read |
+| `tv-dart-fresh` pop animation missing same-tab | `renderDisplayView()` now called same-tab |
+| Bust logic computed independently in two styles | Both use `computeWouldBust` |
+| Implicit coupling on TV class names from phone renderer | TV block removed |
+
+### Unchanged
+- `dartsThisVisit` — still used for commit logic, undo stack, and phone dart slots
+- `state.liveDarts` — still the cross-tab communication channel
+- All 21 unit tests pass
+
+---
+
 ## Bug fixes — Bust indicator correctness
 
 ### Root cause: `Object.assign` skips deleted keys

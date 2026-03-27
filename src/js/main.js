@@ -23,7 +23,7 @@ document.getElementById(VIEW === 'display' ? 'view-display' : 'view-score')
 function handleStateChange(data) {
   onStateChange(data);
   if (VIEW === 'display') renderDisplayView();
-  else                    syncScoreView();
+  else { syncScoreView(); renderDisplayView(); }
 }
 
 // ── Boot ──────────────────────────────────────────────────

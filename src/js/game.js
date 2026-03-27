@@ -3,7 +3,7 @@
 //           numpad event listeners
 // ─────────────────────────────────────────────────────────
 
-import { state, playersSorted }              from './state.js';
+import { state, playersSorted, computeWouldBust } from './state.js';
 import { writeAll, patch }                   from './storage.js';
 import { renderScoreStrip,
          renderScoreStripLive,
@@ -45,7 +45,15 @@ export function syncScoreView() {
   document.getElementById('game-screen').style.display  = 'flex';
   renderScoreStrip();
   updateCurrentPlayerHeader();
-  if (dartsThisVisit.length > 0 && !advancing) _updateDartPreview();
+  // Patch live header score from state.liveDarts (single source of truth)
+  const ld = state.liveDarts;
+  if (ld?.player === state.currentPlayer && ld.darts?.length > 0) {
+    const cp        = state.players?.[state.currentPlayer];
+    const liveTotal = ld.darts.reduce((s, d) => s + d.value, 0);
+    const wouldBust = computeWouldBust(liveTotal, cp.currentScore, state.settings?.finishRule);
+    document.getElementById('gs-score').textContent =
+      wouldBust ? cp.currentScore : cp.currentScore - liveTotal;
+  }
 }
 
 /** Reset all local dart/game UI state — called by setup.js on end game */
@@ -103,10 +111,8 @@ function _updateDartPreview() {
   const cp = state.players?.[state.currentPlayer];
   if (!cp) return;
 
-  const isDoubleOut = state.settings?.finishRule === 'double';
-  const wouldBust   = total > cp.currentScore
-    || (isDoubleOut && cp.currentScore - total === 1);
-  const live        = wouldBust ? cp.currentScore : Math.max(0, cp.currentScore - total);
+  const wouldBust = computeWouldBust(total, cp.currentScore, state.settings?.finishRule);
+  const live      = wouldBust ? cp.currentScore : Math.max(0, cp.currentScore - total);
 
   document.getElementById('gs-score').textContent = live;
   renderScoreStripLive(dartsThisVisit, wouldBust);
@@ -153,9 +159,7 @@ function enterDart(baseValue, label) {
   }
 
   // Bust
-  const isDoubleOut = state.settings?.finishRule === 'double';
-  const isBustNow   = total > cp.currentScore
-    || (isDoubleOut && cp.currentScore - total === 1);
+  const isBustNow = computeWouldBust(total, cp.currentScore, state.settings?.finishRule);
 
   if (isBustNow) {
     isBust = true;

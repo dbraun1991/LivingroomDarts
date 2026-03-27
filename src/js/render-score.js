@@ -60,10 +60,8 @@ export function renderScoreStrip() {
 // ── Live patch (per-dart, no full rebuild) ────────────────
 
 /**
- * Patch the active player's score and dart chips in both the score strip
- * and the TV leaderboard without a full rebuild.
- * Only works for the same-tab scenario — cross-tab TV updates come via
- * the liveDarts storage field handled in render-tv.js.
+ * Patch the active player's score and dart chips in the phone score strip.
+ * TV updates for same-tab are handled by renderDisplayView() in main.js.
  *
  * @param {Array<{display: string, value: number}>} dartsThisVisit
  * @param {boolean} wouldBust
@@ -87,23 +85,6 @@ export function renderScoreStripLive(dartsThisVisit, wouldBust) {
     if (scoreEl) scoreEl.textContent = live;
 
     activeRow.querySelectorAll('.sr-dart').forEach((el, i) => {
-      el.textContent = pads[i];
-      el.style.color = dartsThisVisit[i] ? 'var(--accent)' : '';
-    });
-  }
-
-  // ── TV leaderboard (same tab only) ──
-  const throwRow = document.querySelector('#tv-lb-list .tv-lb-row.throwing');
-  if (throwRow) {
-    throwRow.classList.toggle('bust', wouldBust);
-
-    const scoreEl = throwRow.querySelector('.tv-lb-score');
-    if (scoreEl) {
-      scoreEl.textContent  = wouldBust ? 'BUST!' : live;
-      scoreEl.style.color  = wouldBust ? 'var(--red)' : '';
-    }
-
-    throwRow.querySelectorAll('.tv-lb-dart').forEach((el, i) => {
       el.textContent = pads[i];
       el.style.color = dartsThisVisit[i] ? 'var(--accent)' : '';
     });
