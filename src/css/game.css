@@ -22,8 +22,9 @@
   align-items: center;
   flex-shrink: 0;
 }
-.current-name  { font-family: var(--font-head); font-size: 1.8rem; color: var(--accent); letter-spacing: 1px; }
-.current-score { font-family: var(--font-head); font-size: 2.2rem; color: var(--text); }
+.current-name    { font-family: var(--font-head); font-size: 1.8rem; color: var(--accent); letter-spacing: 1px; }
+.current-score   { font-family: var(--font-head); font-size: 1.8rem; color: var(--text); }
+.pre-visit-score { font-family: var(--font-head); font-size: 1.8rem; color: var(--muted); }
 
 /* ── Dart preview bar ────────────────────────────────── */
 .dart-preview {

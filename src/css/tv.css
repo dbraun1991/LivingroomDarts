@@ -58,6 +58,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 10px;
   overflow-y: auto;
 }
@@ -78,10 +79,12 @@
   gap: 8px;
   background: var(--surface);
   border: 1px solid var(--border);
+  border-left-width: 14px;
   border-radius: 10px;
   transition: all .3s;
 }
-.tv-lb-row.throwing { border-color: var(--gold); background: #1e1a00; }
+.tv-lb-row.throwing { border-color: var(--gold); background: #1e1a00; border-left-width: 21px; }
+.tv-lb-row.bust     { border-color: var(--red);  background: #2a0000; }
 
 /* Column 1 — position + name */
 .tv-lb-col-name { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
